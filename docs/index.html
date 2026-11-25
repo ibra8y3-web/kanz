@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>كنز | متجر تطبيقات أندرويد مفتوحة المصدر</title>
+<meta name="description" content="كنز: متجر تطبيقات أندرويد مفتوحة المصدر ومجانية فقط. خفيف على النت، بصمة SHA-256 لكل نسخة، وكل النسخ القديمة محفوظة.">
+<meta name="theme-color" content="#2e1f9e">
+<link rel="icon" href="icon.png">
+<style>
+:root{--ink:#0f172a;--sub:#64748b;--bg:#f4f6fb;--p:#4f46e5;--p1:#2e1f9e;--p2:#7c3aed;--ok:#059669;--line:#e2e8f0;--warn:#d97706}
+[hidden]{display:none!important}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,"Noto Naskh Arabic","Noto Sans Arabic",sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;font-size:16px}
+a{color:var(--p)}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header.hero{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;padding:20px 0 56px;border-radius:0 0 32px 32px}
+nav{display:flex;align-items:center;gap:10px;font-weight:700}
+nav img{width:36px;height:36px;border-radius:10px}
+nav .sp{flex:1}
+nav a{color:#e0e7ff;text-decoration:none;font-size:14px;font-weight:600}
+.hero h1{font-size:34px;margin-top:34px;line-height:1.3}
+.hero p.lead{color:#dfe5ff;margin-top:8px;max-width:560px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.btn{display:inline-block;padding:13px 22px;border-radius:14px;font-weight:700;text-decoration:none;border:0;cursor:pointer;font:inherit;font-weight:700}
+.btn.main{background:#fff;color:var(--p1)}
+.btn.ghost{background:rgba(255,255,255,.15);color:#fff}
+.btn.p{background:var(--p);color:#fff}
+.dl{background:#fff;color:var(--ink);border-radius:20px;padding:16px;margin-top:22px;box-shadow:0 10px 30px rgba(15,23,42,.18)}
+.dl .row{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px;color:var(--sub)}
+.hash{direction:ltr;text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all;background:#f1f5f9;border-radius:10px;padding:8px 10px;margin-top:8px;color:var(--ink)}
+section{padding:36px 0 4px}
+h2{font-size:22px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.grid .card{padding:12px;font-size:14px}
+.card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 1px 3px rgba(15,23,42,.08)}
+.grid .card b{display:block;margin-bottom:4px}
+.card span.i{font-size:24px;display:block;margin-bottom:4px}
+ol.steps{padding-inline-start:22px}
+ol.steps li{margin:8px 0}
+.note{background:#fef3c7;color:#92400e;border-radius:14px;padding:12px 14px;font-size:14px;margin-top:12px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+input[type=search]{flex:1;min-width:200px;padding:12px 16px;border-radius:24px;border:1px solid var(--line);font:inherit;background:#fff}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+.chip{white-space:nowrap;padding:6px 12px;border-radius:16px;background:#fff;border:1px solid var(--line);font-size:13px;cursor:pointer;color:var(--ink);font-family:inherit}
+.chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.app{background:#fff;border-radius:16px;margin:8px 0;box-shadow:0 1px 3px rgba(15,23,42,.08);overflow:hidden}
+.app>summary{list-style:none;cursor:pointer;display:flex;gap:12px;align-items:center;padding:12px 14px}
+.app>summary::-webkit-details-marker{display:none}
+.ic{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;overflow:hidden}
+.ic img{width:100%;height:100%;object-fit:cover}
+.meta{flex:1;min-width:0}
+.meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta small{display:block;color:var(--sub);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:11px;background:#e0e7ff;color:var(--p);padding:3px 9px;border-radius:12px;flex:none}
+.body{padding:0 14px 14px;border-top:1px solid var(--line)}
+.body p{margin:10px 0;font-size:14px}
+.ver{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;font-size:13px}
+.ver .t{display:flex;justify-content:space-between;gap:6px;font-weight:700;flex-wrap:wrap}
+.ver .f{color:var(--sub);word-break:break-all;direction:ltr;text-align:left}
+.ver .b{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.sm{padding:6px 12px;border-radius:10px;font-size:12px;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;cursor:pointer;font-family:inherit}
+.st{color:var(--sub);font-size:13px;margin:8px 0}
+footer{padding:36px 0 40px;color:var(--sub);font-size:13px;text-align:center}
+@media(min-width:700px){.hero h1{font-size:44px}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <nav><img src="icon.png" alt=""><span>كنز</span><span class="sp"></span><a href="#what">ما هو كنز</a><a href="#install">التثبيت</a><a href="#browse">الكتالوج</a></nav>
+    <h1>كنز، متجر التطبيقات المفتوحة</h1>
+    <p class="lead">متجر أندرويد عربي لتطبيقات مفتوحة المصدر ومجانية فقط. خفيف على النت، وكل نسخة ليها بصمة SHA-256 تقدر تتأكد منها.</p>
+    <div class="cta"><a class="btn main" id="dlbtn" href="kanz.apk">⬇ تحميل كنز</a><a class="btn ghost" href="#browse">تصفّح الكتالوج</a></div>
+    <div class="dl">
+      <div class="row"><span id="dlver">الإصدار: ...</span><span id="dlsize"></span></div>
+      <div class="row" style="margin-top:4px"><span>SHA-256 للملف:</span></div>
+      <div class="hash" id="dlhash">...</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+<section id="what">
+  <h2>ما هو كنز؟</h2>
+  <div class="card"><p>كنز تطبيق متجر لأندرويد بيجمع تطبيقات حرة ومفتوحة المصدر من مصادر موثوقة زي F-Droid وIzzyOnDroid، وبيضيف عليها تلقائيًا تطبيقات مفتوحة المصدر من مصادر إضافية بعد فحص آلي. مفيش تطبيقات مدفوعة ولا مكركة ولا معدّلة (mod).</p></div>
+  <div class="grid" style="margin-top:12px">
+    <div class="card"><span class="i">🆓</span><b>مفتوح المصدر فقط</b>ترخيص مفتوح معروف لكل تطبيق، وبدون كراك أو mod.</div>
+    <div class="card"><span class="i">🔐</span><b>بصمة لكل نسخة</b>بنعرض SHA-256 والتطبيق بيتأكد منها قبل التثبيت.</div>
+    <div class="card"><span class="i">🗂</span><b>كل النسخ القديمة</b>النسخ الجديدة بتتضاف وبس، ومفيش نسخة بتتمسح.</div>
+    <div class="card"><span class="i">📶</span><b>خفيف على الداتا</b>التطبيق حجمه حوالي 2 MB، وبيعرض حجم أي تحميل قبل ما يبدأ. التحديثات الجزئية والأيقونات على الواي فاي.</div>
+    <div class="card"><span class="i">🔄</span><b>بيكبر لوحده</b>فاحص آلي كل 6 ساعات بيدوّر على تطبيقات جديدة وإصدارات جديدة.</div>
+    <div class="card"><span class="i">📥</span><b>تنزيلاتي</b>قايمة بكل اللي نزّلته أو ثبّته وحالته: جاري، محمّل، مثبّت.</div>
+  </div>
+</section>
+
+<section id="install">
+  <h2>خطوات التثبيت</h2>
+  <div class="card"><ol class="steps">
+    <li>اضغط زر <b>تحميل كنز</b> فوق (الملف حوالي 2 MB).</li>
+    <li>افتح الملف من التنزيلات. لو أندرويد سأل، اسمح للمتصفح بتثبيت التطبيقات (مرة واحدة).</li>
+    <li>اضغط <b>تثبيت</b>. لو عندك نسخة قديمة من كنز هتتحدّث فوقها وبياناتك بتفضل.</li>
+    <li>افتح كنز. أول مرة هيزامن الكتالوج، ولو أنت على بيانات الموبايل هيسألك قبل ما ينزّل.</li>
+  </ol>
+  <div class="note">للتأكد إن الملف سليم: قارن SHA-256 المعروض فوق ببصمة الملف عندك (في أي تطبيق بيحسب الـ hash). لو مختلفة، متثبّتهوش.</div></div>
+</section>
+
+<section id="browse">
+  <h2>تصفّح الكتالوج</h2>
+  <div class="card">
+    <p class="st" id="cstat">ده كتالوج المصادر الإضافية اللي عدّت الفحص الآلي (ترخيص مفتوح + APK حقيقي + بصمة). تطبيقات F-Droid موجودة داخل تطبيق كنز نفسه. الكتالوج مش بيتنزّل غير لما تضغط الزرار.</p>
+    <button class="btn p" id="load">تحميل الكتالوج <small id="lsz"></small></button>
+    <div id="browser" hidden>
+      <div class="tools"><input type="search" id="q" placeholder="ابحث بالاسم أو الوصف أو المطوّر…"></div>
+      <div class="chips" id="chips"></div>
+      <div class="st" id="count"></div>
+      <div id="list"></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="wrap">
+  <p>كنز مشروع مفتوح المصدر. الفحص الآلي مش بيضمن إن التطبيق آمن 100%، والتطبيقات من المصادر الإضافية غير مُراجَعة يدويًا.</p>
+  <p style="margin-top:6px"><a id="repo" href="#">المستودع</a></p>
+</footer>
+
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i)};
+var base=location.pathname.replace(/[^\/]*$/,"");
+function mb(n){return n>=1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB"}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function safeUrl(u){return /^https:\/\//i.test(u)?u:"#"}
+
+// repo link from the page address (user.github.io/repo/)
+var m=location.hostname.match(/^(.+)\.github\.io$/), parts=location.pathname.split("/").filter(Boolean);
+if(m&&parts[0]) $("repo").href="https://github.com/"+m[1]+"/"+parts[0]; else $("repo").href="https://github.com/ibra8y3-web/kanz-catalog";
+
+// app download info
+fetch("app.json").then(function(r){return r.json()}).then(function(a){
+  $("dlver").textContent="الإصدار: "+a.version;
+  $("dlsize").textContent="الحجم: "+mb(a.size);
+  $("dlhash").textContent=a.sha256;
+  $("dlbtn").href=a.file||"kanz.apk";
+}).catch(function(){$("dlver").textContent="الإصدار: غير متاح";$("dlhash").textContent="app.json مش موجود"});
+
+// catalog size on button (tiny meta.json)
+var meta=null;
+fetch("meta.json").then(function(r){return r.json()}).then(function(x){meta=x;$("lsz").textContent="("+mb(x.full_bytes)+" • "+x.count+" تطبيق)"}).catch(function(){});
+
+var apps=[],cat="",qv="";
+function unzip(buf){
+  if(!("DecompressionStream" in window)) return Promise.reject(new Error("المتصفح قديم ومش بيدعم فك الضغط. جرّب Chrome أو Safari حديث."));
+  var ds=new DecompressionStream("gzip");
+  var rs=new Response(new Blob([buf]).stream().pipeThrough(ds));
+  return rs.text();
+}
+$("load").onclick=function(){
+  var b=$("load"); b.disabled=true; b.textContent="جاري التحميل…";
+  fetch("catalog.json.gz",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error("الكتالوج لسه مش منشور (HTTP "+r.status+")");return r.arrayBuffer()})
+  .then(unzip).then(function(t){var d=JSON.parse(t);apps=d.apps.filter(function(a){return !a.dup&&!a.arch});
+    b.hidden=true;$("browser").hidden=false;$("cstat").textContent="آخر تحديث: "+(d.gen||"").slice(0,10)+" • رقم الإصدار: "+d.rev;initUI();})
+  .catch(function(e){b.disabled=false;b.textContent="إعادة المحاولة";$("cstat").textContent="⚠ "+e.message});
+};
+if(location.hash==="#all")setTimeout(function(){$("load").click()},0);
+function initUI(){
+  var cs={};apps.forEach(function(a){cs[a.c]=(cs[a.c]||0)+1});
+  var names=Object.keys(cs).sort(function(x,y){return cs[y]-cs[x]});
+  var h='<button class="chip on" data-c="">الكل ('+apps.length+')</button>';
+  names.forEach(function(n){h+='<button class="chip" data-c="'+esc(n)+'">'+esc(n)+' ('+cs[n]+')</button>'});
+  $("chips").innerHTML=h;
+  $("chips").onclick=function(e){var c=e.target.closest(".chip");if(!c)return;cat=c.getAttribute("data-c");[].forEach.call($("chips").children,function(x){x.classList.toggle("on",x===c)});render()};
+  var t;$("q").oninput=function(){clearTimeout(t);t=setTimeout(function(){qv=$("q").value.trim().toLowerCase();render()},150)};
+  render();
+}
+function render(){
+  var l=apps.filter(function(a){return (!cat||a.c===cat)&&(!qv||(a.n+" "+a.d+" "+a.o+" "+a.id).toLowerCase().indexOf(qv)>=0)});
+  l.sort(function(x,y){return y.s-x.s});
+  $("count").textContent=l.length+" تطبيق"+(l.length>100?" (بيعرض أول 100)":"");
+  var h="";
+  l.slice(0,100).forEach(function(a,i){
+    var v=a.v[0]||[];
+    h+='<details class="app" data-i="'+apps.indexOf(a)+'"><summary><div class="ic" data-l="'+esc((a.n||"?").charAt(0).toUpperCase())+'">'+(a.av?'<img loading="lazy" alt="" src="'+esc(safeUrl(a.av))+'" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-l\')">':esc((a.n||"?").charAt(0).toUpperCase()))+'</div><div class="meta"><b>'+esc(a.n)+'</b><small>★ '+a.s+' • '+esc(a.l)+' • '+a.v.length+' نسخة'+(v[0]?' • '+esc(v[0]):'')+'</small></div><span class="tag">'+esc(a.c)+'</span></summary><div class="body"></div></details>';
+  });
+  $("list").innerHTML=h;
+}
+$("list").addEventListener("toggle",function(e){
+  var d=e.target;if(!d.open||d.getAttribute("data-done"))return;d.setAttribute("data-done","1");
+  var a=apps[+d.getAttribute("data-i")];var h="";
+  if(a.d)h+="<p>"+esc(a.d)+"</p>";
+  h+='<p class="st">القسم: '+esc(a.c)+' • المطوّر: '+esc(a.o)+' • أُضيف: '+esc(a.add)+'</p>';
+  if(a.md)h+='<p class="st">ℹ فيه مشروع بنفس الاسم: '+esc(a.md)+'</p>';
+  h+='<p><a class="sm" target="_blank" rel="noopener" href="'+esc(safeUrl(a.u))+'">🌐 المصدر</a></p>';
+  a.v.forEach(function(v,i){
+    h+='<div class="ver"><div class="t"><span>'+esc(v[0])+(i===0?" (الأحدث)":"")+'</span><span>'+esc(v[1])+(v[3]?" • "+mb(v[3]):"")+'</span></div><div class="f">'+esc(v[2])+'</div><div class="hash">'+esc(v[4])+'</div><div class="b"><a class="sm" rel="noopener" href="'+esc(safeUrl(v[5]))+'">⬇ تحميل</a><button class="sm" data-h="'+esc(v[4])+'">نسخ البصمة</button>'+(v[7]?'<span class="tag">تجريبية</span>':'')+(v[8]?'<span class="tag">اتشالت من المصدر</span>':'')+(v[9]?'<span class="tag">اتعدّلت بعد النشر</span>':'')+'<span class="tag">'+(v[6]==="api"?"بصمة من المصدر":"بصمة محسوبة")+'</span></div></div>';
+  });
+  h+='<div class="note">غير مُراجَع يدويًا. مفحوص آليًا (ترخيص + بصمة) بس. ثبّت لو بتثق في المطوّر. الأفضل تثبّته من داخل تطبيق كنز عشان التحقق من البصمة.</div>';
+  d.querySelector(".body").innerHTML=h;
+},true);
+$("list").addEventListener("click",function(e){var b=e.target.closest("button[data-h]");if(!b)return;var t=b.getAttribute("data-h");
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent="اتنسخت ✓"},function(){window.prompt("انسخ البصمة",t)})});
+})();
+</script>
+</body>
+</html>
