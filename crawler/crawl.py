@@ -33,7 +33,9 @@ def http(url, etag=None, host="github", accept=None):
         stats["requests"] += 1
         try:
             r = urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=60)
-            return r.status, dict(r.headers), r.read()
+            body = r.read()
+            if host in ("gitlab", "codeberg"): time.sleep(CFG.get("host_delay_seconds", 2.5))
+            return r.status, dict(r.headers), body
         except urllib.error.HTTPError as e:
             hd = dict(e.headers)
             if e.code == 304: return 304, hd, None
@@ -226,7 +228,7 @@ def process_github_candidate(S, meta):
     stats["new_apps"] += 1; stats["new_versions"] += len(a["versions"])
     log("NEW", aid, len(a["versions"]), "versions")
 
-def gh_search(S, q, pages, since):
+def gh_search(S, q, pages, since, sort_stars=False):
     n = 0
     qq = q + (" pushed:>" + since if since else "")
     for p in range(1, pages + 1):
@@ -234,7 +236,8 @@ def gh_search(S, q, pages, since):
         url = "https://api.github.com/search/repositories?q=%s&sort=updated&order=desc&per_page=100&page=%d" % (urllib.parse.quote(qq), p)
         st, hd, d = jget(url)
         time.sleep(2.2)
-        if st != 200 or not d: break
+        if st != 200: return None
+        if not d: break
         items = d.get("items", [])
         for o in items:
             if out_of_time(): return n
@@ -284,9 +287,9 @@ def refresh_meta(S, limit=60):
 
 # ---------- GitLab ----------
 def gl_run(S):
-    for t in CFG["gitlab_topics"]:
+    for t, pg in [(t, pg) for t in CFG["gitlab_topics"] for pg in range(1, CFG.get("gitlab_pages_per_run", 3) + 1)]:
         if out_of_time(): return
-        st, hd, lst = jget("https://gitlab.com/api/v4/projects?topic=%s&order_by=last_activity_at&per_page=50&simple=false" % t, host="gitlab")
+        st, hd, lst = jget("https://gitlab.com/api/v4/projects?topic=%s&order_by=last_activity_at&per_page=50&simple=false&page=%d" % (t, pg), host="gitlab")
         if st != 200 or not lst: continue
         for p in lst:
             if out_of_time(): return
@@ -337,9 +340,9 @@ def gl_collect(rels):
 # ---------- Codeberg / Forgejo (untested live: Codeberg rate-limited the build sandbox) ----------
 def cb_run(S):
     base = "https://codeberg.org/api/v1"
-    for t in CFG["codeberg_topics"]:
+    for t, pg in [(t, pg) for t in CFG["codeberg_topics"] for pg in range(1, CFG.get("codeberg_pages_per_run", 3) + 1)]:
         if out_of_time(): return
-        st, hd, d = jget("%s/repos/search?topic=true&q=%s&limit=50&sort=updated" % (base, t), host="codeberg")
+        st, hd, d = jget("%s/repos/search?topic=true&q=%s&limit=50&sort=updated&page=%d" % (base, t, pg), host="codeberg")
         if st != 200 or not d: continue
         for p in d.get("data", []):
             if out_of_time(): return
@@ -452,6 +455,46 @@ def icons_pass(S, limit=None):
     for a in S["apps"].values():   # file vanished (fresh checkout without icons) -> redo
         pass
 
+# ---------- icons pulled out of the APK itself (when the repo / index has none) ----------
+def _save_icon(im, name):
+    os.makedirs(os.path.join(OUT, "icons"), exist_ok=True)
+    im.save(os.path.join(OUT, "icons", name), "WEBP", quality=82, method=6)
+
+def apk_icons_pass(S):
+    try: import apk_icon
+    except Exception as e: log("apk_icon unavailable", e); return
+    limit = CFG.get("apk_icons_per_run", 150); full_mb = CFG.get("apk_icon_full_mb", 30)
+    deadline = START + CFG.get("apk_icon_deadline_minutes", 37) * 60; budget = [CFG.get("apk_icon_mb_per_run", 700) * 1024 * 1024]; n = ok = 0
+    # 1) GitHub / GitLab / Codeberg apps that still have no icon
+    for a in sorted(S["apps"].values(), key=lambda a: a["added"], reverse=True):
+        if n >= limit or time.time() > deadline or budget[0] <= 0: break
+        if a.get("ic") or not a["versions"]: continue
+        if a.get("aic") and time.time() - a["aic"] < 30 * 86400: continue
+        vs = [v for v in a["versions"] if not v.get("gone") and not v.get("pre")] or a["versions"]
+        top = [v for v in vs if v["tag"] == vs[0]["tag"]]
+        top.sort(key=lambda v: (0 if re.search(r"arm64|universal|all", v["file"], re.I) else 1 if not re.search(r"x86", v["file"], re.I) else 2, v.get("size") or 0))
+        n += 1
+        im, got, how = apk_icon.extract(top[0]["url"], full_mb); budget[0] -= got
+        if im is not None:
+            _save_icon(im, icon_file(a["id"])); a["ic"] = 1; a["r"] = S["rev"] + 1; ok += 1; log("APKICON", a["id"], how, got // 1024, "KB")
+        else: a["aic"] = int(time.time()); log("apk icon none", a["id"], how)
+    # 2) F-Droid / Izzy / other-repo apps whose index has no icon (list shipped in crawler/fd_noicon.tsv)
+    fd = S.setdefault("fdic", {}); f = os.path.join(ROOT, "crawler", "fd_noicon.tsv")
+    if os.path.exists(f):
+        for ln in open(f, encoding="utf-8"):
+            pk, _, url = ln.rstrip("\n").partition("\t")
+            if n >= limit or time.time() > deadline or budget[0] <= 0: break
+            if not url: continue
+            st = fd.get(pk)
+            if st == 1 and os.path.exists(os.path.join(OUT, "icons", "fd_" + re.sub(r"[^A-Za-z0-9._-]", "_", pk) + ".webp")): continue
+            if isinstance(st, int) and st > 1 and time.time() - st < 30 * 86400: continue
+            n += 1
+            im, got, how = apk_icon.extract(url, full_mb); budget[0] -= got
+            if im is not None:
+                _save_icon(im, "fd_" + re.sub(r"[^A-Za-z0-9._-]", "_", pk) + ".webp"); fd[pk] = 1; ok += 1; log("APKICON fd", pk, how, got // 1024, "KB")
+            else: fd[pk] = int(time.time()); log("apk icon none", pk, how)
+    log("apk icons this run: tried", n, "ok", ok)
+
 # ---------- duplicates ----------
 def detect_dups(S):
     owner_of = {}
@@ -506,6 +549,28 @@ def sig(S): return json.dumps({k: [v["r"], len(v["versions"])] for k, v in S["ap
 def checkpoint(S):
     cur = sig(S); publish(S, cur != _last_sig[0]); save_state(S); _last_sig[0] = cur
 
+def sweep_slices():
+    y0 = CFG.get("sweep_first_year", 2012); y1 = datetime.datetime.utcnow().year; out = []
+    for q in CFG.get("sweep_queries", []):
+        for y in range(y1, y0 - 1, -1):
+            if y >= 2016:
+                for a, b in (("01-01", "03-31"), ("04-01", "06-30"), ("07-01", "09-30"), ("10-01", "12-31")):
+                    out.append("%s created:%d-%s..%d-%s" % (q, y, a, y, b))
+            else: out.append("%s created:%d-01-01..%d-12-31" % (q, y, y))
+    return out
+
+def sweep(S):
+    """walk the whole GitHub backlog in date slices (each slice stays under the 1000-result search cap); resumes across runs"""
+    done = S.setdefault("sweep_done", {}); deadline = START + CFG.get("sweep_minutes", 26) * 60; n = 0
+    for sl in sweep_slices():
+        if time.time() > deadline or out_of_time(): break
+        if sl in done: continue
+        try: r = gh_search(S, sl, CFG.get("sweep_pages_per_slice", 10), None, sort_stars=False)
+        except Stop as e: log("sweep stopped:", e); break
+        if r is None or out_of_time() or time.time() > deadline + 600: break
+        done[sl] = now(); n += 1; checkpoint(S)
+    log("sweep slices done this run:", n, "total:", len(done))
+
 def main():
     S = load_state()
     S.setdefault("disc", {}); S.setdefault("pending", {})
@@ -528,8 +593,10 @@ def main():
             gh_search(S, q, pages, since_q)
             S["disc"][q] = now()
             checkpoint(S)
+        sweep(S)
         refresh_meta(S)
         icons_pass(S)
+        apk_icons_pass(S)
         checkpoint(S)
     except Stop as e:
         log("stopped early:", e)
