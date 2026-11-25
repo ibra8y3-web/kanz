@@ -389,6 +389,69 @@ def cb_collect(rels):
                           "size": a.get("size", 0), "sha": sha, "url": a["browser_download_url"], "hs": "computed", "pre": 1 if r.get("prerelease") else 0})
     return found
 
+# ---------- icons (GitHub repos only; small webp, letter avatar in the app when none) ----------
+try:
+    from PIL import Image
+    import io
+except Exception:
+    Image = None
+
+def icon_file(aid): return re.sub(r"[^A-Za-z0-9._-]", "_", aid) + ".webp"
+DENS = {"xxxhdpi": 2, "xxhdpi": 3, "xhdpi": 4, "hdpi": 5, "mdpi": 6}
+
+def pick_icon(paths):
+    best = None
+    for p in paths:
+        pl = p.lower()
+        if not pl.endswith((".png", ".webp")): continue
+        if re.search(r"(^|/)(test|androidtest|sample|samples|demo|docs|screenshots?|build)/", pl): continue
+        base = pl.rsplit("/", 1)[-1]; score = None
+        if re.search(r"(fastlane/)?metadata/(android/)?[^/]+/images/icon\.(png|webp)$", pl): score = 0
+        elif "playstore" in base and "launcher" in base: score = 1
+        elif re.match(r"ic_launcher(_round)?\.(png|webp)$", base) and "/res/" in pl:
+            d = next((v for k, v in DENS.items() if "-" + k in pl), 7)
+            score = 10 + d + (20 if "round" in base else 0) + (5 if "/src/main/" not in pl else 0) + (3 if "/debug/" in pl else 0)
+        elif base in ("icon.png", "app_icon.png", "logo.png") and pl.count("/") <= 1: score = 60
+        if score is not None and (best is None or score < best[0]): best = (score, p)
+    return best[1] if best else None
+
+def make_icon(aid):
+    """returns True if docs/icons/<id>.webp written"""
+    if Image is None: return False
+    st, hd, t = jget("https://api.github.com/repos/%s/git/trees/HEAD?recursive=1" % aid)
+    if st != 200 or not t: return False
+    path = pick_icon([x["path"] for x in t.get("tree", []) if x.get("type") == "blob" and x.get("size", 1) < 400000])
+    if not path: return False
+    st, hd, body = http("https://raw.githubusercontent.com/%s/HEAD/%s" % (aid, urllib.parse.quote(path)), host="raw")
+    if st != 200 or not body: return False
+    try:
+        im = Image.open(io.BytesIO(body)).convert("RGBA")
+        if min(im.size) < 32: return False
+        im.thumbnail((96, 96), Image.LANCZOS)
+        sq = Image.new("RGBA", (96, 96), (0, 0, 0, 0)); sq.paste(im, ((96 - im.size[0]) // 2, (96 - im.size[1]) // 2))
+        # reject fully transparent / blank images
+        if sq.getchannel("A").getextrema()[1] < 40: return False
+        px = [q for q in sq.getdata() if q[3] > 40]
+        if px and sum(1 for q in px if min(q[:3]) > 235) / len(px) > 0.8:   # white glyph only: put it on a dark tile
+            bgi = Image.new("RGBA", (96, 96), (30, 27, 75, 255)); bgi.alpha_composite(sq); sq = bgi
+        os.makedirs(os.path.join(OUT, "icons"), exist_ok=True)
+        sq.save(os.path.join(OUT, "icons", icon_file(aid)), "WEBP", quality=82, method=6)
+        return True
+    except Exception as e:
+        log("icon fail", aid, e); return False
+
+def icons_pass(S, limit=None):
+    limit = limit or CFG.get("icons_per_run", 500); n = 0
+    for a in sorted(S["apps"].values(), key=lambda a: a["added"], reverse=True):
+        if n >= limit or out_of_time(): break
+        if a["host"] != "github" or a.get("ic"): continue
+        if a.get("ict") and time.time() - a["ict"] < 60 * 86400: continue
+        n += 1
+        if make_icon(a["id"]): a["ic"] = 1; a["r"] = S["rev"] + 1; log("ICON", a["id"])
+        else: a["ict"] = int(time.time())
+    for a in S["apps"].values():   # file vanished (fresh checkout without icons) -> redo
+        pass
+
 # ---------- duplicates ----------
 def detect_dups(S):
     owner_of = {}
@@ -412,7 +475,7 @@ def detect_dups(S):
 # ---------- publish ----------
 def public(a):
     return {"id": a["id"], "h": a["host"], "n": a["name"], "d": a["desc"], "l": a["lic"], "s": a["stars"], "u": a["url"], "c": a["cat"],
-            "o": a["owner"], "av": a.get("avatar", ""), "add": a["added"], "r": a["r"], "dup": a["dup"], "md": a["maybe_dup"],
+            "o": a["owner"], "ic": a.get("ic", 0), "add": a["added"], "r": a["r"], "dup": a["dup"], "md": a["maybe_dup"],
             "arch": a.get("archived", 0) or a.get("gone", 0),
             "v": [[v["tag"], v["date"], v["file"], v["size"], v["sha"], v["url"], v["hs"], v.get("pre", 0), v.get("gone", 0), v.get("sup", 0)] for v in a["versions"]]}
 
@@ -438,11 +501,16 @@ def publish(S, changed):
     json.dump(meta, open(os.path.join(OUT, "meta.json"), "w"), indent=1)
     return meta
 
+_last_sig = [None]
+def sig(S): return json.dumps({k: [v["r"], len(v["versions"])] for k, v in S["apps"].items()}, sort_keys=True)
+def checkpoint(S):
+    cur = sig(S); publish(S, cur != _last_sig[0]); save_state(S); _last_sig[0] = cur
+
 def main():
     S = load_state()
     S.setdefault("disc", {}); S.setdefault("pending", {})
     first = not S["apps"]
-    before = json.dumps({k: v["r"] for k, v in S["apps"].items()})
+    _last_sig[0] = sig(S)
     try:
         for o in CFG["seed_owners"]: gh_user_repos(S, o)
         for r in CFG["seed_repos"]:
@@ -459,16 +527,17 @@ def main():
             else: since_q = None
             gh_search(S, q, pages, since_q)
             S["disc"][q] = now()
+            checkpoint(S)
         refresh_meta(S)
+        icons_pass(S)
+        checkpoint(S)
     except Stop as e:
         log("stopped early:", e)
     for fn in (gl_run, cb_run):
         try:
             if not out_of_time(): fn(S)
         except Stop as e: log("stopped", fn.__name__, e)
-    changed = stats["new_apps"] or stats["new_versions"] or json.dumps({k: v["r"] for k, v in S["apps"].items()}) != before
-    meta = publish(S, bool(changed))
-    save_state(S)
+    cur = sig(S); meta = publish(S, cur != _last_sig[0]); save_state(S)
     log("DONE", json.dumps(stats), json.dumps(meta))
 
 if __name__ == "__main__": main()

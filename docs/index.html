@@ -89,7 +89,7 @@ footer{padding:36px 0 40px;color:var(--sub);font-size:13px;text-align:center}
     <div class="card"><span class="i">🔐</span><b>بصمة لكل نسخة</b>بنعرض SHA-256 والتطبيق بيتأكد منها قبل التثبيت.</div>
     <div class="card"><span class="i">🗂</span><b>كل النسخ القديمة</b>النسخ الجديدة بتتضاف وبس، ومفيش نسخة بتتمسح.</div>
     <div class="card"><span class="i">📶</span><b>خفيف على الداتا</b>التطبيق حجمه حوالي 2 MB، وبيعرض حجم أي تحميل قبل ما يبدأ. التحديثات الجزئية والأيقونات على الواي فاي.</div>
-    <div class="card"><span class="i">🔄</span><b>بيكبر لوحده</b>فاحص آلي كل 6 ساعات بيدوّر على تطبيقات جديدة وإصدارات جديدة.</div>
+    <div class="card"><span class="i">🔄</span><b>بيكبر لوحده</b>فاحص آلي كل ساعة بيدوّر على تطبيقات جديدة وإصدارات جديدة.</div>
     <div class="card"><span class="i">📥</span><b>تنزيلاتي</b>قايمة بكل اللي نزّلته أو ثبّته وحالته: جاري، محمّل، مثبّت.</div>
   </div>
 </section>
@@ -122,7 +122,6 @@ footer{padding:36px 0 40px;color:var(--sub);font-size:13px;text-align:center}
 
 <footer class="wrap">
   <p>كنز مشروع مفتوح المصدر. الفحص الآلي مش بيضمن إن التطبيق آمن 100%، والتطبيقات من المصادر الإضافية غير مُراجَعة يدويًا.</p>
-  <p style="margin-top:6px"><a id="repo" href="#">المستودع</a></p>
 </footer>
 
 <script>
@@ -134,9 +133,6 @@ function mb(n){return n>=1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.ro
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function safeUrl(u){return /^https:\/\//i.test(u)?u:"#"}
 
-// repo link from the page address (user.github.io/repo/)
-var m=location.hostname.match(/^(.+)\.github\.io$/), parts=location.pathname.split("/").filter(Boolean);
-if(m&&parts[0]) $("repo").href="https://github.com/"+m[1]+"/"+parts[0]; else $("repo").href="https://github.com/ibra8y3-web/kanz-catalog";
 
 // app download info
 fetch("app.json").then(function(r){return r.json()}).then(function(a){
@@ -176,13 +172,13 @@ function initUI(){
   render();
 }
 function render(){
-  var l=apps.filter(function(a){return (!cat||a.c===cat)&&(!qv||(a.n+" "+a.d+" "+a.o+" "+a.id).toLowerCase().indexOf(qv)>=0)});
+  var l=apps.filter(function(a){return (!cat||a.c===cat)&&(!qv||(a.n+" "+a.d).toLowerCase().indexOf(qv)>=0)});
   l.sort(function(x,y){return y.s-x.s});
   $("count").textContent=l.length+" تطبيق"+(l.length>100?" (بيعرض أول 100)":"");
   var h="";
   l.slice(0,100).forEach(function(a,i){
     var v=a.v[0]||[];
-    h+='<details class="app" data-i="'+apps.indexOf(a)+'"><summary><div class="ic" data-l="'+esc((a.n||"?").charAt(0).toUpperCase())+'">'+(a.av?'<img loading="lazy" alt="" src="'+esc(safeUrl(a.av))+'" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-l\')">':esc((a.n||"?").charAt(0).toUpperCase()))+'</div><div class="meta"><b>'+esc(a.n)+'</b><small>★ '+a.s+' • '+esc(a.l)+' • '+a.v.length+' نسخة'+(v[0]?' • '+esc(v[0]):'')+'</small></div><span class="tag">'+esc(a.c)+'</span></summary><div class="body"></div></details>';
+    h+='<details class="app" data-i="'+apps.indexOf(a)+'"><summary><div class="ic" data-l="'+esc((a.n||"?").charAt(0).toUpperCase())+'">'+(a.ic?'<img loading="lazy" alt="" src="icons/'+a.id.replace(/[^A-Za-z0-9._-]/g,"_")+'.webp" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-l\')">':esc((a.n||"?").charAt(0).toUpperCase()))+'</div><div class="meta"><b>'+esc(a.n)+'</b><small>★ '+a.s+' • '+esc(a.l)+' • '+a.v.length+' نسخة'+(v[0]?' • '+esc(v[0]):'')+'</small></div><span class="tag">'+esc(a.c)+'</span></summary><div class="body"></div></details>';
   });
   $("list").innerHTML=h;
 }
@@ -190,7 +186,7 @@ $("list").addEventListener("toggle",function(e){
   var d=e.target;if(!d.open||d.getAttribute("data-done"))return;d.setAttribute("data-done","1");
   var a=apps[+d.getAttribute("data-i")];var h="";
   if(a.d)h+="<p>"+esc(a.d)+"</p>";
-  h+='<p class="st">القسم: '+esc(a.c)+' • المطوّر: '+esc(a.o)+' • أُضيف: '+esc(a.add)+'</p>';
+  h+='<p class="st">القسم: '+esc(a.c)+' • أُضيف: '+esc(a.add)+'</p>';
   if(a.md)h+='<p class="st">ℹ فيه مشروع بنفس الاسم: '+esc(a.md)+'</p>';
   h+='<p><a class="sm" target="_blank" rel="noopener" href="'+esc(safeUrl(a.u))+'">🌐 المصدر</a></p>';
   a.v.forEach(function(v,i){

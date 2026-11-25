@@ -1,14 +1,14 @@
 # kanz-catalog — كتالوج كنز
 
 مستودع بيجمع تلقائيًا تطبيقات أندرويد **مفتوحة المصدر** من GitHub (وGitLab وCodeberg) وبيطلّع كتالوج صغير مضغوط لتطبيق **كنز**.
-GitHub Actions بيشغّل الـ crawler كل 6 ساعات مجانًا. مفيش سيرفر.
+GitHub Actions بيشغّل الـ crawler كل ساعة مجانًا. مفيش سيرفر.
 
 ## خطوات الرفع (مرة واحدة)
 1. على GitHub اعمل مستودع جديد **Public** اسمه `kanz-catalog` (بنفس حسابك `ibra8y3-web`).
 2. فك الـ zip، وارفع **كل محتوياته** للمستودع (Add file ← Upload files). لازم يظهر فولدر `.github` و `crawler` و `docs` و `data` و `config.json`.
    لو فولدر `.github` ما ظهرش من المتصفح، اعمل clone للمستودع الفاضي، انسخ المحتويات جواه (مع `.github`)، وبعدين commit و push.
 3. من Settings ← Actions ← General ← Workflow permissions اختار **Read and write permissions** واحفظ.
-4. من تبويب Actions اختار **crawl** ثم **Run workflow** (أول تشغيل ممكن ياخد 20-40 دقيقة، وبعدها بيشتغل لوحده كل 6 ساعات).
+4. من تبويب Actions اختار **crawl** ثم **Run workflow** (أول تشغيل ممكن ياخد 20-40 دقيقة، وبعدها بيشتغل لوحده كل ساعة).
 5. **الموقع (GitHub Pages)**: من Settings ← Pages ← Source: **Deploy from a branch** ← Branch: **main** ومجلد **/docs** ← Save. بعد دقيقة الموقع يشتغل على:
    **https://ibra8y3-web.github.io/kanz-catalog/**
    (لو اسم المستودع أو الحساب مختلف: https://اسم-الحساب.github.io/اسم-المستودع/)

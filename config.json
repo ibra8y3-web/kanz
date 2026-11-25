@@ -19,5 +19,6 @@
   "max_versions_kept": 0,
   "reject_recheck_days": 30,
   "delta_window_revs": 40,
-  "skip_debug_apks": true
+  "skip_debug_apks": true,
+  "icons_per_run": 800
 }
