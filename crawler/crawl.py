@@ -117,6 +117,7 @@ def load_state():
     return {"rev": 0, "apps": {}, "rejected": {}, "pending": {}, "disc": {}}
 
 def save_state(s):
+    os.makedirs(os.path.dirname(STATE_F) or ".", exist_ok=True)
     tmp = STATE_F + ".tmp"
     json.dump(s, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     os.replace(tmp, STATE_F)

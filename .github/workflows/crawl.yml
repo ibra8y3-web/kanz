@@ -1,7 +1,7 @@
 name: crawl
 on:
   schedule:
-    - cron: "17 * * * *"      # كل ساعة
+    - cron: "7,37 * * * *"     # كل 30 دقيقة
   workflow_dispatch: {}
   push:
     branches: [main]
@@ -20,6 +20,20 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: restore previous catalog from history if missing
+        run: |
+          mkdir -p data docs/icons
+          if [ ! -f data/state.json ]; then
+            C=$(git log -1 --format=%H --diff-filter=AM -- data/state.json || true)
+            if [ -n "$C" ]; then
+              echo "restoring from $C"
+              git checkout "$C" -- data docs/catalog.json.gz docs/delta.json.gz docs/meta.json docs/icons 2>&1 || true
+            else
+              echo "no earlier state, starting fresh"
+            fi
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -34,5 +48,6 @@ jobs:
         run: |
           git config user.name "kanz-bot"
           git config user.email "kanz-bot@users.noreply.github.com"
-          git add data docs
+          mkdir -p data docs
+          git add -A data docs
           if git diff --cached --quiet; then echo "no changes"; else git commit -m "catalog update $(date -u +%F-%H%M)"; git push; fi
