@@ -5,7 +5,7 @@
 <div class="card"><h1>واجهة المطورين (API مفتوحة)</h1>
 <p class="s">بيانات المتجر كلها متاحة كملفات JSON ثابتة، قراءة بس، <b>من غير مفتاح ولا تسجيل</b>. أي برنامج يقدر يسحبها ويدمجها. الملفات بتتحدّث مع كل تشغيل للمحرك (حوالي كل 30 دقيقة). مفيش حد رسمي للاستخدام، بس اطلب بحساب (cache) وما تعملش طلبات كتير ورا بعض: الاستضافة على GitHub Pages.</p>
 <ul>
-<li><a class="l" href="../api/v1/index.json">api/v1/index.json</a>: فهرس كل التطبيقات (10370) بحقول مختصرة.</li>
+<li><a class="l" href="../api/v1/index.json">api/v1/index.json</a>: فهرس كل التطبيقات (10371) بحقول مختصرة.</li>
 <li><code>api/v1/apps/&lt;slug&gt;.json</code>: سجل كامل لتطبيق، بكل النسخ المعروفة والبصمات.</li>
 <li><a class="l" href="../api/v1/schema.json">api/v1/schema.json</a>: وصف الحقول (JSON Schema).</li>
 <li><a class="l" href="../sitemap.xml">sitemap.xml</a> · <a class="l" href="../app.json">app.json</a> (نسخة تطبيق كنز).</li>
@@ -20,7 +20,7 @@ curl -s https://ibra8y3-web.github.io/kanz-catalog/api/v1/apps/&lt;slug&gt;.json
 <li>للدمج في نظامك: اسحب <code>index.json</code> دوريًا وقارن <code>latest_version</code> وupdated. ملفات data/ و docs/ في المستودع بتتولد من المحرك وأي تعديل يدوي عليها بيتكتب فوقه، فالمساهمة بتتم عن طريق نموذج الإضافة أو بفتح Issue/PR على كود المحرك (crawler/).</li></ul></div>
 <div class="card en"><h1>Developer API (open, read-only)</h1>
 <p class="s">The whole catalog is published as static JSON. <b>No API key or sign-up is needed</b> for read access: the store is open source, so there is nothing to protect. Files refresh on every crawler run (about every 30 minutes). There is no official rate limit, but cache responses and be gentle: it is hosted on GitHub Pages.</p>
-<ul><li><code>GET api/v1/index.json</code>: slim index of all 10370 apps.</li><li><code>GET api/v1/apps/{slug}.json</code>: full record with every known version and SHA-256.</li><li><code>GET api/v1/schema.json</code>: JSON Schema.</li></ul>
+<ul><li><code>GET api/v1/index.json</code>: slim index of all 10371 apps.</li><li><code>GET api/v1/apps/{slug}.json</code>: full record with every known version and SHA-256.</li><li><code>GET api/v1/schema.json</code>: JSON Schema.</li></ul>
 <p class="s">URLs are stable under /v1/. Breaking changes will ship as /v2/. GitHub Pages serves static files with permissive CORS headers, so browsers can read them directly. Each record has <code>kind</code>: <code>live</code> (checked by the crawler each run) or <code>baked</code> (static snapshot, may be older). <code>license</code> is an SPDX id or null if undeclared.</p>
 <p class="s">To add an app, open an issue with the "Submit an app to Kanz" form (GitHub repos only). To merge the data into your own system, poll index.json and compare <code>latest_version</code>/<code>updated</code>. Files in data/ and docs/ are generated and overwritten by the crawler, so contribute through the submit form or issues/PRs against crawler/.</p></div>
 </div></body></html>
