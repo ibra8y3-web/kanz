@@ -597,10 +597,16 @@ def main():
         sweep(S)
         refresh_meta(S)
         icons_pass(S)
-        apk_icons_pass(S)
         checkpoint(S)
     except Stop as e:
         log("stopped early:", e)
+    # APK icon extraction downloads release files (no API quota), so it runs even if the API quota stopped the crawl
+    try:
+        apk_icons_pass(S)
+    except Exception as e:
+        log("apk icons pass failed:", repr(e))
+    try: checkpoint(S)
+    except Exception as e: log("checkpoint failed", repr(e))
     for fn in (gl_run, cb_run):
         try:
             if not out_of_time(): fn(S)
