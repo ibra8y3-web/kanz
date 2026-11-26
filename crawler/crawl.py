@@ -800,6 +800,8 @@ def self_entry():
         j = json.load(open(os.path.join(OUT, "app.json"), encoding="utf-8"))
         if not os.path.exists(os.path.join(OUT, j.get("file", "kanz.apk"))): return None
         ver = re.match(r"[\d.]+", j["version"]).group(0)
+        _ap = os.path.join(OUT, j.get("file", "kanz.apk"))   # hash/size come from the real file so the catalog can never disagree with it
+        j["size"] = os.path.getsize(_ap); j["sha256"] = hashlib.sha256(open(_ap, "rb").read()).hexdigest()
         iid = "ibra8y3-web/kanz-catalog"; ico = os.path.join(OUT, "icons", icon_file(iid)); src = os.path.join(OUT, "icon.png")
         if not os.path.exists(ico) and os.path.exists(src):
             from PIL import Image
