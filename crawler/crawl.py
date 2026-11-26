@@ -523,6 +523,24 @@ def public(a):
             "arch": a.get("archived", 0) or a.get("gone", 0),
             "v": [[v["tag"], v["date"], v["file"], v["size"], v["sha"], v["url"], v["hs"], v.get("pre", 0), v.get("gone", 0), v.get("sup", 0)] for v in a["versions"]]}
 
+def self_entry():
+    """the store lists itself: version/size/sha come from docs/app.json (same file the in-app self-update uses)"""
+    try:
+        j = json.load(open(os.path.join(OUT, "app.json"), encoding="utf-8"))
+        if not os.path.exists(os.path.join(OUT, j.get("file", "kanz.apk"))): return None
+        ver = re.match(r"[\d.]+", j["version"]).group(0)
+        iid = "ibra8y3-web/kanz-catalog"; ico = os.path.join(OUT, "icons", icon_file(iid)); src = os.path.join(OUT, "icon.png")
+        if not os.path.exists(ico) and os.path.exists(src):
+            from PIL import Image
+            im = Image.open(src).convert("RGBA"); im.thumbnail((128, 128)); _save_icon(im, icon_file(iid))
+        url = "https://raw.githubusercontent.com/ibra8y3-web/kanz-catalog/main/docs/" + j.get("file", "kanz.apk")
+        return {"id": iid, "h": "github", "n": "كنز (Kanz)", "d": "متجر تطبيقات مفتوحة المصدر بالعربي. من هنا بتحدّث المتجر نفسه.",
+                "l": "FOSS", "s": 0, "u": "https://ibra8y3-web.github.io/kanz-catalog/", "c": "أدوات النظام", "o": "kanz",
+                "ic": 1 if os.path.exists(ico) else 0, "add": "2026-11-26", "r": 0, "dup": None, "md": None, "arch": 0,
+                "v": [["v" + ver, now()[:10], j.get("file", "kanz.apk"), int(j["size"]), j["sha256"], url, "api", 0, 0, 0]]}
+    except Exception as e:
+        log("self entry skipped", repr(e)); return None
+
 def publish(S, changed):
     if changed: S["rev"] += 1
     rev = S["rev"]
@@ -530,6 +548,11 @@ def publish(S, changed):
         if a["r"] == 0 or a["r"] > rev: a["r"] = rev
     detect_dups(S)
     apps = [public(a) for a in sorted(S["apps"].values(), key=lambda a: a["id"].lower()) if a["versions"]]
+    se = self_entry()
+    if se:
+        sg = json.dumps(se["v"][0][0:5])
+        if S.get("self_sig") != sg: S["self_sig"] = sg; S["self_r"] = rev
+        se["r"] = S.get("self_r", rev); apps.append(se); apps.sort(key=lambda x: x["id"].lower())
     full = {"fmt": 1, "rev": rev, "gen": now(), "count": len(apps), "apps": apps}
     base = max(0, rev - CFG["delta_window_revs"])
     delta = {"fmt": 1, "rev": rev, "base": base, "gen": full["gen"], "apps": [x for x in apps if x["r"] > base]}
