@@ -240,21 +240,52 @@ def vt_check(sha):
         return int(stt.get("malicious", 0)) + int(stt.get("suspicious", 0))
     except Exception: return None
 
+def sub_verify_file(url, code, host="raw"):
+    """ownership proof: a file we asked the submitter to place in their repo, carrying a code we gave them"""
+    if not code: return False
+    try:
+        st, hd, body = http(url, host=host)
+        return st == 200 and body is not None and code.encode() in body
+    except Exception: return False
+
+def sub_verified(it, owner, branch_hint=None):
+    """is the issue author provably the repo owner? GitHub: login match, or collaborator with access (best-effort
+    public API), or the KANZ-VERIFY.txt code file. GitLab/Codeberg: the code file. F-Droid: never."""
+    typ = it.get("type", "github"); link = it.get("link") or ""; sender = (it.get("sender") or "").lower(); code = it.get("code") or ""
+    if typ == "github":
+        if sender and sender == owner.lower(): return True
+        if sender:
+            try:
+                st, hd, b = http("https://api.github.com/repos/%s/collaborators/%s" % (link, sender))
+                if st == 204: return True
+            except Exception: pass
+        return sub_verify_file("https://raw.githubusercontent.com/%s/HEAD/KANZ-VERIFY.txt" % link, code)
+    if typ == "gitlab" and branch_hint:
+        return sub_verify_file("https://gitlab.com/api/v4/projects/%s/repository/files/KANZ-VERIFY.txt/raw?ref=%s" % (urllib.parse.quote(link, safe=""), urllib.parse.quote(branch_hint, safe="")), code, host="gitlab")
+    if typ == "codeberg" and branch_hint:
+        return sub_verify_file("https://codeberg.org/%s/raw/branch/%s/KANZ-VERIFY.txt" % (link, urllib.parse.quote(branch_hint, safe="")), code, host="codeberg")
+    return False
+
 def sub_trusted(S, prefixes, exclude=None):
     """a developer/source is trusted once they already have ANOTHER app in the catalog"""
     return any(aid != exclude and any(aid.startswith(p) for p in prefixes) for aid in S["apps"])
 
 def sub_finish(S, it, r, a, doubt):
-    """decide: auto-accept (trusted source, no doubts) or hold for the store owner's review (removes the staged app)."""
-    if not doubt and sub_trusted(S, r["trust_prefixes"], a["id"]):
+    """decide: auto-accept (verified owner + already-listed developer + no doubts) or hold for the store owner's
+    review (removes the staged app)."""
+    if not doubt and r.get("verified") and sub_trusted(S, r["trust_prefixes"], a["id"]):
         r["status"] = "accepted"; log("SUBMISSION accepted", a["id"]); return
     S["apps"].pop(a["id"], None)
-    r["status"] = "review"; r["doubt"] = doubt or ["مطور جديد (أول تطبيق من المصدر ده)"]
+    r["status"] = "review"
+    why = list(doubt)
+    if not r.get("verified"): why.append("مش متأكدين إن مقدّم الطلب هو صاحب المستودع")
+    if not sub_trusted(S, r["trust_prefixes"], a["id"]): why.append("مطور جديد (أول تطبيق من المصدر ده)")
+    r["doubt"] = why
     log("SUBMISSION pending review", a["id"], r["doubt"])
 
 def sub_add_gitlab(S, path):
     st, hd, o = jget("https://gitlab.com/api/v4/projects/%s?license=true" % urllib.parse.quote(path, safe=""), host="gitlab")
-    if st != 200 or not o: return None, "مشروع GitLab مش موجود أو مش عام", []
+    if st != 200 or not o: return None, "مشروع GitLab مش موجود أو مش عام", [], None
     spdx = ((o.get("license") or {}).get("key") or "")
     spdx = {"mit": "MIT", "apache-2.0": "Apache-2.0", "gpl-3.0": "GPL-3.0", "gpl-2.0": "GPL-2.0", "agpl-3.0": "AGPL-3.0", "lgpl-3.0": "LGPL-3.0",
             "lgpl-2.1": "LGPL-2.1", "bsd-3-clause": "BSD-3-Clause", "bsd-2-clause": "BSD-2-Clause", "mpl-2.0": "MPL-2.0", "unlicense": "Unlicense", "isc": "ISC", "cc0-1.0": "CC0-1.0"}.get(spdx, "")
@@ -262,30 +293,30 @@ def sub_add_gitlab(S, path):
             "spdx": spdx, "archived": o.get("archived", False), "fork": bool(o.get("forked_from_project")), "stars": o.get("star_count", 0),
             "url": o["web_url"], "host": "gitlab", "pushed": o.get("last_activity_at", ""), "avatar": o.get("avatar_url") or ""}
     ok, lic = repo_verdict(meta)
-    if not ok: return None, lic, []
+    if not ok: return None, lic, [], None
     st, hd, rels = jget("https://gitlab.com/api/v4/projects/%d/releases?per_page=30" % o["id"], host="gitlab")
     found = gl_collect(rels or [])
-    if not found: return None, "مفيش Release فيه ملف APK يتوثّق بالـSHA-256", []
+    if not found: return None, "مفيش Release فيه ملف APK يتوثّق بالـSHA-256", [], None
     a = new_app(meta, lic); a["pid"] = o["id"]; a["checked"] = now(); S["apps"][meta["id"]] = a
     merge_versions(a, found, now()); a["r"] = S["rev"] + 1; icon_now(S, a); stats["new_apps"] += 1
-    return a, "", []
+    return a, "", [], o.get("default_branch")
 
 def sub_add_codeberg(S, full):
     base = "https://codeberg.org/api/v1"
     st, hd, o = jget("%s/repos/%s" % (base, full), host="codeberg")
-    if st != 200 or not o: return None, "مستودع Codeberg مش موجود أو مش عام", []
+    if st != 200 or not o: return None, "مستودع Codeberg مش موجود أو مش عام", [], None
     spdx = cb_license(base, full)
     meta = {"id": "codeberg:" + full, "owner": o["owner"]["login"], "name": o["name"], "desc": o.get("description") or "", "topics": o.get("topics") or [],
             "spdx": spdx, "archived": o.get("archived", False), "fork": o.get("fork", False), "stars": o.get("stars_count", 0),
             "url": o["html_url"], "host": "codeberg", "pushed": o.get("updated_at", ""), "avatar": o.get("avatar_url") or ""}
     ok, lic = repo_verdict(meta)
-    if not ok: return None, lic, []
+    if not ok: return None, lic, [], None
     st, hd, rels = jget("%s/repos/%s/releases?limit=30" % (base, full), host="codeberg")
     found = cb_collect(rels or [])
-    if not found: return None, "مفيش Release فيه ملف APK يتوثّق بالـSHA-256", []
+    if not found: return None, "مفيش Release فيه ملف APK يتوثّق بالـSHA-256", [], None
     a = new_app(meta, lic); a["checked"] = now(); S["apps"][meta["id"]] = a
     merge_versions(a, found, now()); a["r"] = S["rev"] + 1; icon_now(S, a); stats["new_apps"] += 1
-    return a, "", []
+    return a, "", [], o.get("default_branch")
 
 def sub_add_fdroid(S, pkg):
     st, hd, d = jget("https://f-droid.org/api/v1/packages/" + pkg, host="fdroid")
@@ -349,7 +380,7 @@ def process_submissions(S):
         if not r.get("approved"):
             r["tries"] += 1
             if r["tries"] > 12: r["status"] = "rejected"; r["why"] = "عدد محاولات كتير من غير نتيجة"; continue
-        a, why, doubt = None, "", []
+        a, why, doubt, branch = None, "", [], None
         if typ == "github":
             st, hd, o = jget("https://api.github.com/repos/" + link)
             if st != 200 or not o:
@@ -366,16 +397,17 @@ def process_submissions(S):
                 if rj and rj["why"] != "no verifiable apk release": r["status"] = "rejected"; r["why"] = rj["why"]
                 elif rj: r["status"] = "rejected"; r["why"] = "مفيش Release فيه ملف APK يتوثّق بالـSHA-256"
                 continue
-            r["trust_prefixes"] = ["gh:" + meta["owner"] + "/", meta["owner"] + "/"]
+            r["trust_prefixes"] = ["gh:" + meta["owner"] + "/", meta["owner"] + "/"]; r["owner"] = meta["owner"]
         elif typ == "gitlab":
-            a, why, doubt = sub_add_gitlab(S, link); r["trust_prefixes"] = ["gitlab:" + link.rsplit("/", 1)[0] + "/"]
+            a, why, doubt, branch = sub_add_gitlab(S, link); r["trust_prefixes"] = ["gitlab:" + link.rsplit("/", 1)[0] + "/"]
         elif typ == "codeberg":
-            a, why, doubt = sub_add_codeberg(S, link); r["trust_prefixes"] = ["codeberg:" + link.split("/", 1)[0] + "/"]
+            a, why, doubt, branch = sub_add_codeberg(S, link); r["trust_prefixes"] = ["codeberg:" + link.split("/", 1)[0] + "/"]
         elif typ == "fdroid":
             a, why, doubt = sub_add_fdroid(S, link); r["trust_prefixes"] = ["fdroid:"]
         if not a:
             if why: r["status"] = "rejected"; r["why"] = why
             continue
+        r["verified"] = sub_verified(it, r.get("owner") or a.get("owner", ""), branch)
         if r.get("approved"):
             r["status"] = "accepted"; log("SUBMISSION accepted after review", a["id"]); continue
         if CFG.get("scan_apk_submissions", True) and not doubt:

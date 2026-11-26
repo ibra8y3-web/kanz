@@ -1,15 +1,15 @@
 """Runs when someone opens a 'submit-app' issue. Treats the issue text as data only: classifies the submitted link
 (GitHub / GitLab / Codeberg / F-Droid / direct APK) with strict patterns and queues it in data/submissions.json.
 The crawler verifies license/APK/SHA/permissions and reports back on the issue."""
-import os, sys, re, json
+import os, sys, re, json, hashlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ghapi
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QF = os.path.join(ROOT, "data", "submissions.json")
-PAT_GH = re.compile(r"(?:https?://github\.com/)?([A-Za-z0-9](?:[A-Za-z0-9_-]{0,38}))/([A-Za-z0-9_.-]{1,100})/?$")
-PAT_GL = re.compile(r"https?://gitlab\.com/([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)/?$")
-PAT_CB = re.compile(r"https?://codeberg\.org/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/?$")
-PAT_FD = re.compile(r"https?://(?:www\.)?f-droid\.org/(?:[a-z]{2}(?:-[A-Za-z]+)?/)?packages/([A-Za-z0-9_.]+)/?")
+PAT_GH = re.compile(r"(?:(?:https?://)?github\.com/)?([A-Za-z0-9](?:[A-Za-z0-9_-]{0,38}))/([A-Za-z0-9_.-]{1,100})/?$")
+PAT_GL = re.compile(r"(?:https?://)?gitlab\.com/([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)/?$")
+PAT_CB = re.compile(r"(?:https?://)?codeberg\.org/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/?$")
+PAT_FD = re.compile(r"(?:https?://)?(?:www\.)?f-droid\.org/(?:[a-z]{2}(?:-[A-Za-z]+)?/)?packages/([A-Za-z0-9_.]+)/?")
 PAT_APK = re.compile(r"https://([A-Za-z0-9.-]+)/\S*\.apk(?:\?\S*)?$", re.I)
 
 def classify(line):
@@ -32,8 +32,6 @@ def main():
     body = iss.get("body") or ""
     lines = [l.strip() for l in re.split(r"###[^\n]*\n+", body) if l.strip() and not l.strip().startswith(("_", "متجر", "The store", "حط ", "Paste ", "الفحص"))]
     link_line = lines[0].split("\n")[0].strip() if lines else ""
-    name = lines[1].split("\n")[0].strip() if len(lines) > 1 else ""
-    if name.lower().startswith("_no response"): name = ""
     typ, link = classify(link_line)
     if not typ:
         ghapi.comment(me, num, "ما قدرتش أقرأ الرابط. المصادر المقبولة: GitHub (owner/repo)، GitLab، Codeberg، F-Droid، أو رابط APK مباشر HTTPS. | Could not read the link. Accepted sources: GitHub (owner/repo), GitLab, Codeberg, F-Droid, or a direct HTTPS APK link."); ghapi.close(me, num, "not_planned"); return
@@ -50,7 +48,11 @@ def main():
     if sum(1 for x in q if x.get("sender") == sender) >= 5:
         ghapi.comment(me, num, "وصلت للحد الأقصى من الطلبات المفتوحة (5). استنى نتيجة طلباتك الأول. | You reached the maximum of 5 open submissions. Please wait for your earlier ones."); ghapi.close(me, num, "not_planned"); return
     if len(q) > 5000: return
-    q.append({"type": typ, "link": link, "name": name, "issue": num, "sender": sender}); os.makedirs(os.path.dirname(QF), exist_ok=True)
+    code = "kanz-" + hashlib.sha256((link + "#" + str(num)).encode()).hexdigest()[:16]
+    q.append({"type": typ, "link": link, "issue": num, "sender": sender, "code": code}); os.makedirs(os.path.dirname(QF), exist_ok=True)
     json.dump(q, open(QF, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-    ghapi.comment(me, num, "تمام، %s اتحط في الطابور. هيتفحص (ترخيص + APK + SHA-256 + صلاحيات) في التشغيل الجاي للمحرك (خلال حوالي 30 دقيقة) وهرد هنا بالنتيجة. تطبيقات المطورين الجدد بتستنى موافقة صاحب المتجر. | %s is queued and will be checked on the next crawler run (about 30 minutes). Apps from new developers also wait for the store owner's approval." % (link, link))
+    msg = "تمام، %s اتحط في الطابور. هيتفحص (ترخيص + APK + SHA-256 + صلاحيات) في التشغيل الجاي للمحرك (خلال حوالي 30 دقيقة) وهرد هنا بالنتيجة. تطبيقات المطورين الجدد بتستنى موافقة صاحب المتجر. | %s is queued and will be checked on the next crawler run (about 30 minutes). Apps from new developers also wait for the store owner's approval." % (link, link)
+    if typ != "fdroid":
+        msg += "\n\nلو إنت صاحب المستودع وعايز تثبت ملكيتك (بيخلي التقديمات الجاية منك تدخل أسرع): حط ملف اسمه KANZ-VERIFY.txt في جذر المستودع محتواه الكود ده بس: %s | To prove ownership (speeds up future submissions), place a file named KANZ-VERIFY.txt at the repository root containing only this code: %s" % (code, code)
+    ghapi.comment(me, num, msg)
 main()

@@ -16,12 +16,6 @@ body:
       placeholder: "owner/repo أو رابط GitHub / GitLab / Codeberg / F-Droid"
     validations:
       required: true
-  - type: input
-    id: name
-    attributes:
-      label: "اسم التطبيق (اختياري) | App name (optional)"
-    validations:
-      required: false
   - type: checkboxes
     id: confirm
     attributes:
