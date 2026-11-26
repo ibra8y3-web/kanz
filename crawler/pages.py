@@ -64,7 +64,7 @@ def _write_bytes(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "wb").write(data); return 1
 
-SITE = "https://ibra8y3-web.github.io/kanz-catalog/"
+SITE = "https://ibra8y3-web.github.io/kanz/"
 SELF_ID = "ibra8y3-web/kanz-catalog"
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASES = ["https://f-droid.org/repo/", "https://apt.izzysoft.de/fdroid/repo/", "https://f-droid.org/archive/", "https://guardianproject.info/fdroid/repo/",

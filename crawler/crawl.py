@@ -998,9 +998,9 @@ def self_entry():
                 im = Image.open(src).convert("RGBA"); im.thumbnail((128, 128))
             if im is not None:
                 _save_icon(im, icon_file(iid)); open(mark, "w", encoding="utf-8").write(j["sha256"])
-        url = "https://raw.githubusercontent.com/ibra8y3-web/kanz-catalog/main/docs/" + j.get("file", "kanz.apk")
+        url = "https://raw.githubusercontent.com/ibra8y3-web/kanz/main/docs/" + j.get("file", "kanz.apk")
         return {"id": iid, "h": "github", "n": "كنز (Kanz)", "d": "متجر تطبيقات مفتوحة المصدر بالعربي. من هنا بتحدّث المتجر نفسه.",
-                "l": "FOSS", "s": 0, "u": "https://ibra8y3-web.github.io/kanz-catalog/", "c": "أدوات النظام", "o": "kanz",
+                "l": "FOSS", "s": 0, "u": "https://ibra8y3-web.github.io/kanz/", "c": "أدوات النظام", "o": "kanz",
                 "ic": 1 if os.path.exists(ico) else 0, "add": "2026-11-26", "r": 0, "dup": None, "md": None, "arch": 0,
                 "v": [["v" + ver, now()[:10], j.get("file", "kanz.apk"), int(j["size"]), j["sha256"], url, "api", 0, 0, 0]]}
     except Exception as e:

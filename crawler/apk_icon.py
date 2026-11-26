@@ -6,7 +6,7 @@ try:
 except Exception:
     Image = None
 
-UA = "KanzCatalogBot/1 (+https://github.com/ibra8y3-web/kanz-catalog)"
+UA = "KanzCatalogBot/1 (+https://github.com/ibra8y3-web/kanz)"
 DENS = {"xxxhdpi": 0, "xxhdpi": 1, "xhdpi": 2, "hdpi": 3, "mdpi": 4, "ldpi": 6, "nodpi": 5, "anydpi": 9}
 
 class RangeFile(io.RawIOBase):
