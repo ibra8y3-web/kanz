@@ -1,0 +1,121 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "title": "Kanz app record",
+ "type": "object",
+ "required": [
+  "id",
+  "slug",
+  "name",
+  "latest_version",
+  "apk",
+  "page"
+ ],
+ "properties": {
+  "id": {
+   "type": "string",
+   "description": "owner/repo for live apps, Android package name for baked ones"
+  },
+  "slug": {
+   "type": "string"
+  },
+  "name": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "category": {
+   "type": "string"
+  },
+  "license": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "SPDX id, null if not declared"
+  },
+  "latest_version": {
+   "type": "string"
+  },
+  "latest_size": {
+   "type": "integer",
+   "description": "bytes"
+  },
+  "latest_sha256": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "updated": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "YYYY-MM-DD of latest release"
+  },
+  "kind": {
+   "enum": [
+    "live",
+    "baked"
+   ],
+   "description": "live = checked by the crawler every run, baked = from a static snapshot"
+  },
+  "page": {
+   "type": "string"
+  },
+  "qr_png": {
+   "type": "string"
+  },
+  "apk": {
+   "type": "string"
+  },
+  "source_url": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "developer_group": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "versions": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "version": {
+      "type": "string"
+     },
+     "date": {
+      "type": "string"
+     },
+     "file": {
+      "type": "string"
+     },
+     "size": {
+      "type": "integer"
+     },
+     "sha256": {
+      "type": "string"
+     },
+     "url": {
+      "type": "string"
+     },
+     "prerelease": {
+      "type": "boolean"
+     },
+     "removed_upstream": {
+      "type": "boolean"
+     }
+    }
+   }
+  },
+  "generated": {
+   "type": "string"
+  }
+ }
+}

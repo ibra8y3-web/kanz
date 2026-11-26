@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ibra8y3-web.github.io/kanz-catalog/sitemap.xml
