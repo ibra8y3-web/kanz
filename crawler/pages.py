@@ -125,7 +125,7 @@ CSS = ("body{font-family:system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif;ma
        ".h{display:flex;gap:14px;align-items:center}.h img{width:84px;height:84px;border-radius:18px;background:#eee}h1{font-size:22px;margin:0 0 4px}"
        ".s{color:#666;font-size:14px}.g{display:flex;gap:8px;text-align:center}.g div{flex:1;background:#f1effc;border-radius:12px;padding:10px 4px}.g b{display:block}"
        ".b{display:block;text-align:center;padding:14px;border-radius:14px;font-weight:bold;text-decoration:none;margin-top:10px}"
-       ".p{background:#5b3fd4;color:#fff}.o{background:#fff;color:#5b3fd4;border:2px solid #5b3fd4}.qr{display:flex;justify-content:center;padding:8px}.qr svg{border:1px solid #e6e6f0;border-radius:8px;max-width:100%}.n{font-size:12px;color:#777;margin-top:10px}"
+       ".p{background:#5b3fd4;color:#fff}.o{background:#fff;color:#5b3fd4;border:2px solid #5b3fd4}.sh{display:flex;gap:8px;overflow-x:auto}.sh img{height:240px;border-radius:8px;border:1px solid #e6e6f0}.qr{display:flex;justify-content:center;padding:8px}.qr svg{border:1px solid #e6e6f0;border-radius:8px;max-width:100%}.n{font-size:12px;color:#777;margin-top:10px}"
        ".v bdi{white-space:nowrap}.v{display:inline-block;background:#dcfce7;color:#166534;border-radius:20px;padding:5px 12px;font-size:13px;margin-top:12px}"
        "code{font-size:11px;word-break:break-all}ul{padding:0 18px}a.l{color:#5b3fd4}.b small{font-weight:normal;opacity:.85}"
        ".bk a{display:inline-block;margin:4px;padding:8px 14px;background:#f1effc;border-radius:12px;text-decoration:none;color:#5b3fd4}")
@@ -142,6 +142,8 @@ def render(n):
     else: badge = '<div class="v" style="background:#fef3c7;color:#92400e">ℹ الترخيص غير معلن</div>'
     note = "" if n["self"] or not n["live"] else '<p class="n">متفحّص آليًا (ترخيص مفتوح + بصمة SHA-256) لكن مش مراجَع يدويًا.<br><span dir="ltr">Checked automatically (open license + SHA-256), not manually reviewed.</span></p>'
     sha = ('<p class="n"><bdi dir="ltr">SHA-256: <code>%s</code></bdi></p>' % e(n["sha"])) if n["sha"] else ""
+    shots = "".join('<img src="../../shots/%s/%s" alt="" loading="lazy">' % (e(slug(n["id"])), e(f)) for f in n.get("shots") or [])
+    shotbox = ('<div class="card"><div class="sh">%s</div></div>' % shots) if shots else ""
     dv = n.get("dev"); devbox = ('<div class="card"><p class="s"><a class="l" href="../../d/%s/">تطبيقات تانية لنفس المطوّر (%d)</a><br><span dir="ltr">More apps from this developer: <bdi>%s</bdi></span></p></div>' % (e(dv[1]), dv[2], e(dv[0]))) if dv else ""
     cat = ('<div class="s">%s</div>' % e(n["cat"])) if n["cat"] else ""
     return ('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -154,11 +156,11 @@ def render(n):
             '<div class="g" style="margin-top:14px"><div><b><bdi dir="ltr">%s</bdi></b>الإصدار</div><div><b><bdi dir="ltr">%s</bdi></b>الحجم</div><div><b><bdi dir="ltr">%s</bdi></b>الرخصة</div></div>'
             '<a class="b o" href="kanz://app?id=%s">افتح في كنز<br><small dir="ltr">Open in Kanz</small></a>'
             '<a class="b p" href="%s" rel="nofollow">تحميل APK (<bdi dir="ltr">%s</bdi>)<br><small dir="ltr">Download APK</small></a>%s%s</div>'
-            '%s<div class="card" style="text-align:center"><div class="qr">%s</div><p class="n">امسح الكود لفتح صفحة التطبيق<br><span dir="ltr">Scan to open this app page</span></p></div><div class="card"><p class="s">لو كنز مش متثبت عندك: <a class="l" href="../../kanz.apk">نزّل متجر كنز</a>.<br><span dir="ltr">Not installed? <a class="l" href="../../kanz.apk">Get the Kanz store</a>.</span></p>'
+            '%s%s<div class="card" style="text-align:center"><div class="qr">%s</div><p class="n">امسح الكود لفتح صفحة التطبيق<br><span dir="ltr">Scan to open this app page</span></p></div><div class="card"><p class="s">لو كنز مش متثبت عندك: <a class="l" href="../../kanz.apk">نزّل متجر كنز</a>.<br><span dir="ltr">Not installed? <a class="l" href="../../kanz.apk">Get the Kanz store</a>.</span></p>'
             '<p class="s"><a class="l" href="%s">المصدر | Source</a> · <a class="l" href="../">كل التطبيقات</a></p></div></div></body></html>') % (
         e(name), e(short), e(url), e(name), e(short), e(url), SITE, json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
         e(n["icon"]), e(name), cat, e(desc[:300]), badge, e(n["ver"]), e(_mb(n["size"])), e(lic), urllib.parse.quote(n["id"], safe=""),
-        e(n["url"]), e(_mb(n["size"])), sha, note, devbox, qr_svg(url), e(n["src"]))
+        e(n["url"]), e(_mb(n["size"])), sha, note, shotbox, devbox, qr_svg(url), e(n["src"]))
 
 def _write(path, text):
     try:
@@ -196,7 +198,7 @@ def _api_app(n, sl, gen):
     return {"id": n["id"], "slug": sl, "name": n["name"], "description": n["desc"][:600], "category": n["cat"], "license": n["lic"] or None,
             "latest_version": n["ver"], "latest_size": int(n["size"] or 0), "latest_sha256": n["sha"] or None, "updated": n["date"] or None,
             "kind": "live" if n["live"] else "baked", "page": SITE + "a/" + sl + "/", "qr_png": SITE + "a/" + sl + "/qr.png",
-            "apk": n["url"], "source_url": n["src"] if n["src"] != SITE else None, "developer_group": dv[0] if dv else None, "versions": vers, "generated": gen}
+            "apk": n["url"], "source_url": n["src"] if n["src"] != SITE else None, "developer_group": dv[0] if dv else None, "screenshots": [SITE + "shots/" + sl + "/" + f for f in n.get("shots") or []], "versions": vers, "generated": gen}
 
 SCHEMA = {"$schema": "http://json-schema.org/draft-07/schema#", "title": "Kanz app record", "type": "object",
           "required": ["id", "slug", "name", "latest_version", "apk", "page"],
@@ -204,7 +206,7 @@ SCHEMA = {"$schema": "http://json-schema.org/draft-07/schema#", "title": "Kanz a
                          "name": {"type": "string"}, "description": {"type": "string"}, "category": {"type": "string"}, "license": {"type": ["string", "null"], "description": "SPDX id, null if not declared"},
                          "latest_version": {"type": "string"}, "latest_size": {"type": "integer", "description": "bytes"}, "latest_sha256": {"type": ["string", "null"]},
                          "updated": {"type": ["string", "null"], "description": "YYYY-MM-DD of latest release"}, "kind": {"enum": ["live", "baked"], "description": "live = checked by the crawler every run, baked = from a static snapshot"},
-                         "page": {"type": "string"}, "qr_png": {"type": "string"}, "apk": {"type": "string"}, "source_url": {"type": ["string", "null"]}, "developer_group": {"type": ["string", "null"]},
+                         "page": {"type": "string"}, "qr_png": {"type": "string"}, "apk": {"type": "string"}, "source_url": {"type": ["string", "null"]}, "developer_group": {"type": ["string", "null"]}, "screenshots": {"type": "array", "items": {"type": "string"}, "description": "small webp copies, F-Droid apps only, may be empty"},
                          "versions": {"type": "array", "items": {"type": "object", "properties": {"version": {"type": "string"}, "date": {"type": "string"}, "file": {"type": "string"}, "size": {"type": "integer"},
                                       "sha256": {"type": "string"}, "url": {"type": "string"}, "prerelease": {"type": "boolean"}, "removed_upstream": {"type": "boolean"}}}},
                          "generated": {"type": "string"}}}
@@ -261,6 +263,8 @@ def generate(apps, out, icon_file, limit=None):
     gen = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"); api = []
     for n in items:
         sl = slug(n["id"])
+        sdir = os.path.join(out, "shots", sl)
+        n["shots"] = sorted(f for f in os.listdir(sdir) if f.endswith(".webp")) if os.path.isdir(sdir) else []
         api.append(_api_app(n, sl, gen))
         wrote += _write(os.path.join(out, "api", "v1", "apps", sl + ".json"), json.dumps(api[-1], ensure_ascii=False, separators=(",", ":"), sort_keys=True))
         png = qr_png(SITE + "a/" + sl + "/")

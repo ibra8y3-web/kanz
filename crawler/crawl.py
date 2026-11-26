@@ -226,6 +226,7 @@ def process_github_candidate(S, meta):
     a = new_app(meta, lic); a["etag"] = et; a["checked"] = now()
     S["apps"][aid] = a
     merge_versions(a, found, now()); a["r"] = S["rev"] + 1
+    icon_now(S, a)
     stats["new_apps"] += 1; stats["new_versions"] += len(a["versions"])
     log("NEW", aid, len(a["versions"]), "versions")
 
@@ -338,7 +339,7 @@ def gl_run(S):
             if not found:
                 S["rejected"][aid] = {"why": "no apk release", "t": int(time.time()), "pushed": ""}; continue
             a = new_app(meta, lic); a["pid"] = p["id"]; S["apps"][aid] = a; a["checked"] = now()
-            merge_versions(a, found, now()); a["r"] = S["rev"] + 1; stats["new_apps"] += 1; stats["new_versions"] += len(found)
+            merge_versions(a, found, now()); a["r"] = S["rev"] + 1; icon_now(S, a); stats["new_apps"] += 1; stats["new_versions"] += len(found)
             log("NEW", aid)
     for a in [x for x in S["apps"].values() if x["host"] == "gitlab"]:
         if out_of_time(): break
@@ -385,7 +386,7 @@ def cb_run(S):
             found = cb_collect(rels or [])
             if not found: S["rejected"][aid] = {"why": "no apk release", "t": int(time.time()), "pushed": ""}; continue
             a = new_app(meta, lic); S["apps"][aid] = a; a["checked"] = now()
-            merge_versions(a, found, now()); a["r"] = S["rev"] + 1; stats["new_apps"] += 1; stats["new_versions"] += len(found)
+            merge_versions(a, found, now()); a["r"] = S["rev"] + 1; icon_now(S, a); stats["new_apps"] += 1; stats["new_versions"] += len(found)
     for a in [x for x in S["apps"].values() if x["host"] == "codeberg"]:
         if out_of_time(): break
         st, hd, rels = jget("%s/repos/%s/releases?limit=30" % (base, a["id"][9:]), host="codeberg")
@@ -483,42 +484,286 @@ def icons_pass(S, limit=None):
 # ---------- icons pulled out of the APK itself (when the repo / index has none) ----------
 def _save_icon(im, name):
     os.makedirs(os.path.join(OUT, "icons"), exist_ok=True)
-    im.save(os.path.join(OUT, "icons", name), "WEBP", quality=82, method=6)
+    im.save(os.path.join(OUT, "icons", name), "WEBP", quality=75, method=6)
+
+def _fetch_img(url, max_mb=3):
+    """download one image (size-capped) and return a PIL image or None (svg and broken files are skipped)"""
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=30)
+        raw = r.read(max_mb * 1024 * 1024 + 1)
+        if not raw or len(raw) > max_mb * 1024 * 1024: return None
+        im = Image.open(io.BytesIO(raw)); im.load(); return im
+    except Exception: return None
+
+def _square(im, size=128):
+    """centre-crop to a square (so a banner or screenshot still gives a usable icon), then shrink"""
+    im = im.convert("RGBA"); w, h = im.size
+    if min(w, h) < 24: return None
+    m = min(w, h); l = (w - m) // 2; t = 0 if h > w * 1.3 else (h - m) // 2   # tall screenshots: keep the top
+    im = im.crop((l, t, l + m, t + m)).resize((size, size), Image.LANCZOS)
+    bg = Image.new("RGBA", (size, size), (255, 255, 255, 255)); bg.alpha_composite(im)
+    ex = bg.convert("L").getextrema()
+    if ex[1] - ex[0] < 12: return None      # blank image
+    return bg.convert("RGB")
+
+_BAD_IMG = re.compile(r"shields\.io|badge|travis|circleci|codecov|github\.com/[^/]+/[^/]+/(actions|workflows)|\.svg|sponsor|donate|liberapay|paypal|weblate|hosted\.weblate|fdroid\.gitlab|get-it-on|google-play|play\.google|buymeacoffee|ko-fi|opencollective|badgen|img\.shields", re.I)
+def _readme_images(raw_base, text, limit=4):
+    out = []
+    for m in re.finditer(r'!\[[^\]]*\]\(\s*<?([^)\s>]+)|<img[^>]+src=["\']([^"\']+)', text):
+        u = (m.group(1) or m.group(2) or "").strip()
+        if not u or _BAD_IMG.search(u) or u.startswith("data:"): continue
+        if not u.startswith("http"): u = raw_base + urllib.parse.quote(u.lstrip("./").lstrip("/"), safe="/%:@")
+        out.append(u)
+        if len(out) >= limit: break
+    return out
+
+def related_image(a, S):
+    """last real-image fallbacks when the app's own icon cannot be extracted: README/repo images, store graphics,
+    social preview, project avatar, owner avatar. Returns a 128px PIL image or None. Shrunk small by the caller."""
+    if Image is None: return None
+    aid = a["id"]; urls = []
+    try:
+        if a["host"] == "github":
+            for rd in ("README.md", "readme.md", "README.rst", "README"):
+                st, hd, body = http("https://raw.githubusercontent.com/%s/HEAD/%s" % (aid, rd), host="raw")
+                if st == 200 and body:
+                    urls += _readme_images("https://raw.githubusercontent.com/%s/HEAD/" % aid, body.decode("utf-8", "ignore")[:60000]); break
+            urls += ["https://opengraph.githubusercontent.com/1/" + aid, "https://github.com/%s.png?size=200" % aid.split("/")[0]]
+        elif a["host"] == "gitlab":
+            path = aid.split(":", 1)[1]
+            st, hd, pj = jget("https://gitlab.com/api/v4/projects/" + urllib.parse.quote(path, safe=""), host="raw")
+            if pj and pj.get("avatar_url"): urls.append(pj["avatar_url"])
+            br = pj.get("default_branch") if pj else None
+            if br:
+                st, hd, body = http("https://gitlab.com/%s/-/raw/%s/README.md" % (path, br), host="raw")
+                if st == 200 and body: urls += _readme_images("https://gitlab.com/%s/-/raw/%s/" % (path, br), body.decode("utf-8", "ignore")[:60000])
+            st, hd, ns = jget("https://gitlab.com/api/v4/namespaces/" + urllib.parse.quote(path.rsplit("/", 1)[0], safe=""), host="raw")
+            if ns and ns.get("avatar_url"): urls.append(ns["avatar_url"])
+        elif a["host"] == "codeberg":
+            path = aid.split(":", 1)[1]
+            st, hd, pj = jget("https://codeberg.org/api/v1/repos/" + path, host="raw")
+            if pj:
+                if pj.get("avatar_url"): urls.append(pj["avatar_url"])
+                br = pj.get("default_branch") or "main"
+                st, hd, body = http("https://codeberg.org/%s/raw/branch/%s/README.md" % (path, br), host="raw")
+                if st == 200 and body: urls += _readme_images("https://codeberg.org/%s/raw/branch/%s/" % (path, br), body.decode("utf-8", "ignore")[:60000])
+                if (pj.get("owner") or {}).get("avatar_url"): urls.append(pj["owner"]["avatar_url"])
+    except Exception as e: log("related urls failed", aid, repr(e)[:60])
+    for u in urls[:8]:
+        im = _fetch_img(u)
+        if im is None: continue
+        sq = _square(im)
+        if sq is not None: return sq
+    return None
+
+def related_image_fd(pk, S):
+    urls = []
+    for pth in ((S.get("shots") or {}).get("list") or {}).get(pk, [])[:2]: urls.append(FD_REPO + urllib.parse.quote(pth))
+    urls += ["%s/%s/en-US/featureGraphic.png" % (FD_REPO.rstrip("/"), pk), "%s/%s/en-US/icon.png" % (FD_REPO.rstrip("/"), pk)]
+    for u in urls:
+        im = _fetch_img(u)
+        if im is None: continue
+        sq = _square(im)
+        if sq is not None: return sq
+    return None
+
+def letter_tile(name, key):
+    """generated placeholder (128px webp tile with the first letter). Only used when no real icon can be extracted."""
+    from PIL import Image, ImageDraw, ImageFont
+    h = int(hashlib.sha1(key.encode("utf-8")).hexdigest()[:6], 16)
+    pal = [(91, 63, 212), (13, 148, 136), (217, 119, 6), (190, 24, 93), (37, 99, 235), (101, 163, 13), (124, 58, 237), (220, 38, 38)]
+    col = pal[h % len(pal)]
+    ch = next((c for c in (name or "") if c.isascii() and c.isalnum()), None) or "K"
+    im = Image.new("RGB", (128, 128), col); d = ImageDraw.Draw(im)
+    try: f = ImageFont.load_default(size=72)
+    except Exception: f = ImageFont.load_default()
+    try:
+        bb = d.textbbox((0, 0), ch.upper(), font=f); w, hh = bb[2] - bb[0], bb[3] - bb[1]
+        d.text(((128 - w) / 2 - bb[0], (128 - hh) / 2 - bb[1]), ch.upper(), fill=(255, 255, 255), font=f)
+    except Exception: d.text((50, 50), ch.upper(), fill=(255, 255, 255))
+    return im
+
+def _top_apk(a):
+    vs = [v for v in a["versions"] if not v.get("gone") and not v.get("pre")] or a["versions"]
+    top = [v for v in vs if v["tag"] == vs[0]["tag"]]
+    top.sort(key=lambda v: (0 if re.search(r"arm64|universal|all", v["file"], re.I) else 1 if not re.search(r"x86", v["file"], re.I) else 2, v.get("size") or 0))
+    return top[0]["url"] if top else None
+
+_import_budget = [None]
+def _apk_try(url, full_mb):
+    """APK's own icon, one retry on failure. returns (im, bytes_read, how)"""
+    import apk_icon
+    tot = 0
+    for i in range(2):
+        im, got, how = apk_icon.extract(url, full_mb); tot += got
+        if im is not None: return im, tot, how
+    return None, tot, "fail"
+
+def icon_now(S, a):
+    """called right when a new app is imported: icon in the same step. Order: 1) the APK's own icon (one retry),
+    2) repo icon (GitHub), 3) related image (README, preview, avatars). Whatever fails is left for the sweep."""
+    if Image is None or a.get("ic"): return
+    try: import apk_icon
+    except Exception: return
+    if _import_budget[0] is None: _import_budget[0] = CFG.get("import_icon_mb_per_run", 400) * 1024 * 1024
+    if out_of_time() or _import_budget[0] <= 0: return
+    try:
+        url = _top_apk(a)
+        if url:
+            im, got, how = _apk_try(url, CFG.get("apk_icon_full_mb", 30)); _import_budget[0] -= got
+            if im is not None:
+                _save_icon(im, icon_file(a["id"])); a["ic"] = 1; a["r"] = S["rev"] + 1; log("APKICON at import", a["id"], how); return
+        if a["host"] == "github" and make_icon(a["id"]): a["ic"] = 1; a["r"] = S["rev"] + 1; log("repo icon at import", a["id"]); return
+        ri = related_image(a, S)
+        if ri is not None:
+            _save_icon(ri, icon_file(a["id"])); a["ic"] = 1; a["ph"] = 2; a["aic"] = int(time.time()); a["r"] = S["rev"] + 1; log("RELATED image at import", a["id"])
+    except Exception as e: log("icon at import failed", a["id"], repr(e)[:80])
 
 def apk_icons_pass(S):
+    """sweep of every app that still has no icon (or only a generated placeholder), fair round-robin over sources:
+    GitHub, GitLab, Codeberg and the F-Droid-style list. After 3 failed attempts a letter tile is stored so nothing stays blank;
+    real extraction is retried every 30 days for placeholders."""
     try: import apk_icon
     except Exception as e: log("apk_icon unavailable", e); return
-    limit = CFG.get("apk_icons_per_run", 150); full_mb = CFG.get("apk_icon_full_mb", 30)
-    deadline = START + CFG.get("apk_icon_deadline_minutes", 37) * 60; budget = [CFG.get("apk_icon_mb_per_run", 700) * 1024 * 1024]; n = ok = 0
-    # 1) GitHub / GitLab / Codeberg apps that still have no icon
+    full_mb = CFG.get("apk_icon_full_mb", 30); limit = CFG.get("apk_icon_sweep_per_run", 400)
+    deadline = min(START + CFG.get("apk_icon_hard_stop_minutes", 54) * 60, time.time() + CFG.get("apk_icon_minutes", 12) * 60)
+    budget = [CFG.get("apk_icon_mb_per_run", 1500) * 1024 * 1024]; n = ok = ph = rel = 0; now_t = time.time()
+    # queues per source
+    qs = {"github": [], "gitlab": [], "codeberg": [], "fd": []}
     for a in sorted(S["apps"].values(), key=lambda a: a["added"], reverse=True):
-        if n >= limit or time.time() > deadline or budget[0] <= 0: break
-        if a.get("ic") or not a["versions"]: continue
-        if a.get("aic") and time.time() - a["aic"] < 30 * 86400: continue
-        vs = [v for v in a["versions"] if not v.get("gone") and not v.get("pre")] or a["versions"]
-        top = [v for v in vs if v["tag"] == vs[0]["tag"]]
-        top.sort(key=lambda v: (0 if re.search(r"arm64|universal|all", v["file"], re.I) else 1 if not re.search(r"x86", v["file"], re.I) else 2, v.get("size") or 0))
-        n += 1
-        im, got, how = apk_icon.extract(top[0]["url"], full_mb); budget[0] -= got
-        if im is not None:
-            _save_icon(im, icon_file(a["id"])); a["ic"] = 1; a["r"] = S["rev"] + 1; ok += 1; log("APKICON", a["id"], how, got // 1024, "KB")
-        else: a["aic"] = int(time.time()); log("apk icon none", a["id"], how)
-    # 2) F-Droid / Izzy / other-repo apps whose index has no icon (list shipped in crawler/fd_noicon.tsv)
-    fd = S.setdefault("fdic", {}); f = os.path.join(ROOT, "crawler", "fd_noicon.tsv")
+        if not a["versions"]: continue
+        real_missing = (not a.get("ic")) or a.get("ph")
+        if not real_missing: continue
+        last = a.get("aic") or 0
+        if a.get("ph"):
+            if now_t - last < 30 * 86400: continue
+        elif last and now_t - last < 3 * 86400: continue
+        qs.setdefault(a["host"], []).append(("app", a))
+    fd = S.setdefault("fdic", {}); fdf = S.setdefault("fdfail", {}); f = os.path.join(ROOT, "crawler", "fd_noicon.tsv")
     if os.path.exists(f):
         for ln in open(f, encoding="utf-8"):
             pk, _, url = ln.rstrip("\n").partition("\t")
-            if n >= limit or time.time() > deadline or budget[0] <= 0: break
             if not url: continue
+            fn = "fd_" + re.sub(r"[^A-Za-z0-9._-]", "_", pk) + ".webp"
             st = fd.get(pk)
-            if st == 1 and os.path.exists(os.path.join(OUT, "icons", "fd_" + re.sub(r"[^A-Za-z0-9._-]", "_", pk) + ".webp")): continue
-            if isinstance(st, int) and st > 1 and time.time() - st < 30 * 86400: continue
-            n += 1
-            im, got, how = apk_icon.extract(url, full_mb); budget[0] -= got
-            if im is not None:
-                _save_icon(im, "fd_" + re.sub(r"[^A-Za-z0-9._-]", "_", pk) + ".webp"); fd[pk] = 1; ok += 1; log("APKICON fd", pk, how, got // 1024, "KB")
-            else: fd[pk] = int(time.time()); log("apk icon none", pk, how)
-    log("apk icons this run: tried", n, "ok", ok)
+            if st == 1 and os.path.exists(os.path.join(OUT, "icons", fn)): continue
+            fl = fdf.get(pk) or [0, 0]
+            if st == 2 and now_t - fl[1] < 30 * 86400: continue
+            if st != 2 and fl[1] and now_t - fl[1] < 3 * 86400: continue
+            qs["fd"].append(("fd", (pk, url, fn)))
+    order = [k for k in ("github", "gitlab", "codeberg", "fd") if qs.get(k)]
+    idx = {k: 0 for k in order}
+    while order and n < limit and time.time() < deadline and budget[0] > 0:
+        for k in list(order):
+            if idx[k] >= len(qs[k]): order.remove(k); continue
+            kind, it = qs[k][idx[k]]; idx[k] += 1; n += 1
+            try:
+                if kind == "app":
+                    a = it; url = _top_apk(a); im, got, how = _apk_try(url, full_mb) if url else (None, 0, "no-url"); budget[0] -= got
+                    if im is not None:
+                        _save_icon(im, icon_file(a["id"])); a["ic"] = 1; a["ph"] = 0; a["r"] = S["rev"] + 1; ok += 1; log("APKICON", a["id"], how, got // 1024, "KB")
+                    elif not a.get("ic") and a["host"] == "github" and make_icon(a["id"]):
+                        a["ic"] = 1; a["ph"] = 0; a["r"] = S["rev"] + 1; ok += 1; log("repo icon", a["id"])
+                    elif not a.get("ic") and (ri := related_image(a, S)) is not None:
+                        _save_icon(ri, icon_file(a["id"])); a["ic"] = 1; a["ph"] = 2; a["aic"] = int(time.time()); a["r"] = S["rev"] + 1; rel += 1; log("RELATED image", a["id"])
+                    else:
+                        a["aic"] = int(time.time()); a["aicn"] = a.get("aicn", 0) + 1
+                        if not a.get("ic") and a["aicn"] >= 3:
+                            _save_icon(letter_tile(a["name"], a["id"]), icon_file(a["id"])); a["ic"] = 1; a["ph"] = 1; a["r"] = S["rev"] + 1; ph += 1; log("placeholder", a["id"])
+                else:
+                    pk, url, fn = it; im, got, how = _apk_try(url, full_mb); budget[0] -= got
+                    fl = fdf.setdefault(pk, [0, 0])
+                    if im is not None:
+                        _save_icon(im, fn); fd[pk] = 1; fl[0] = 0; ok += 1; log("APKICON fd", pk, how, got // 1024, "KB")
+                    elif fd.get(pk) != 2 and (ri := related_image_fd(pk, S)) is not None:
+                        _save_icon(ri, fn); fd[pk] = 2; fl[1] = int(time.time()); rel += 1; log("RELATED image fd", pk)
+                    else:
+                        fl[0] += 1; fl[1] = int(time.time())
+                        if fl[0] >= 3 and fd.get(pk) != 1: _save_icon(letter_tile(pk.split(".")[-1], pk), fn); fd[pk] = 2; ph += 1; log("placeholder fd", pk)
+            except Exception as e: log("icon sweep error", repr(e)[:80])
+            if n >= limit or time.time() >= deadline or budget[0] <= 0: break
+    log("apk icons sweep: tried", n, "ok", ok, "related-image", rel, "letter tiles", ph, "remaining queues", {k: len(qs[k]) - idx.get(k, len(qs[k])) for k in qs})
+
+# ---------- screenshots (F-Droid main repo; small webp copies, hard size caps) ----------
+FD_REPO = "https://f-droid.org/repo"
+def _dir_bytes(d):
+    t = 0
+    for r, _, fs in os.walk(d):
+        for f in fs:
+            try: t += os.path.getsize(os.path.join(r, f))
+            except OSError: pass
+    return t
+
+def _fdroid_shot_index(S):
+    """one streamed download of the F-Droid index (about 75 MB, at most once a week), keeping only the first 2 phone screenshots per baked app"""
+    sh = S.setdefault("shots", {"idx_t": 0, "list": {}, "done": {}})
+    if sh["list"] and time.time() - sh["idx_t"] < 7 * 86400: return
+    import tempfile
+    pks = set()
+    f = os.path.join(ROOT, "crawler", "baked.tsv")
+    if os.path.exists(f):
+        for ln in open(f, encoding="utf-8"):
+            p = ln.split("\t")
+            if len(p) > 11 and p[11] == "0": pks.add(p[0])
+    if not pks: return
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json"); tmp.close()
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(FD_REPO + "/index-v2.json", headers={"User-Agent": UA}), timeout=120)
+        n = 0
+        with open(tmp.name, "wb") as o:
+            while True:
+                b = r.read(1 << 20)
+                if not b: break
+                n += len(b); o.write(b)
+                if n > 200 * 1024 * 1024: raise IOError("index too large")
+        d = json.load(open(tmp.name, encoding="utf-8"))
+        lst = {}
+        for pk, v in (d.get("packages") or {}).items():
+            if pk not in pks: continue
+            ph = ((v.get("metadata") or {}).get("screenshots") or {}).get("phone") or {}
+            loc = ph.get("en-US") or (next(iter(ph.values())) if ph else None)
+            if loc: lst[pk] = [x["name"] for x in loc[:2] if isinstance(x, dict) and x.get("name", "").startswith("/")]
+        del d
+        sh["list"] = {k: v for k, v in lst.items() if v}; sh["idx_t"] = int(time.time())
+        log("shots index:", len(sh["list"]), "apps with screenshots")
+    except Exception as e: log("shots index failed:", repr(e))
+    finally:
+        try: os.unlink(tmp.name)
+        except OSError: pass
+
+def shots_pass(S):
+    per_run = CFG.get("shots_apps_per_run", 120)
+    if per_run <= 0: return
+    try:
+        from PIL import Image
+        import io
+        sys.path.insert(0, os.path.join(ROOT, "crawler")); import pages
+    except Exception as e: log("shots unavailable", repr(e)); return
+    deadline = min(START + CFG.get("apk_icon_hard_stop_minutes", 54) * 60, time.time() + CFG.get("shots_minutes", 8) * 60)
+    _fdroid_shot_index(S)
+    sh = S["shots"]; done = sh["done"]; cap = CFG.get("shots_max_mb", 120) * 1024 * 1024
+    sd = os.path.join(OUT, "shots"); total = _dir_bytes(sd) if os.path.isdir(sd) else 0; n = ok = 0
+    for pk, paths in sh["list"].items():
+        if n >= per_run or time.time() > deadline or total >= cap: break
+        st = done.get(pk)
+        if st and (st > 0 or time.time() + st < 30 * 86400): continue
+        n += 1; saved = 0; sl = pages.slug(pk)
+        for i, path in enumerate(paths[:2], 1):
+            try:
+                r = urllib.request.urlopen(urllib.request.Request(FD_REPO + urllib.parse.quote(path), headers={"User-Agent": UA}), timeout=40)
+                raw = r.read(4 * 1024 * 1024 + 1)
+                if len(raw) > 4 * 1024 * 1024: continue
+                im = Image.open(io.BytesIO(raw)).convert("RGB"); im.thumbnail((320, 640), Image.LANCZOS)
+                buf = io.BytesIO(); q = 55; im.save(buf, "WEBP", quality=q, method=6)
+                while buf.tell() > 45 * 1024 and q > 25: q -= 10; buf = io.BytesIO(); im.save(buf, "WEBP", quality=q, method=6)
+                if buf.tell() > 70 * 1024: continue
+                os.makedirs(os.path.join(sd, sl), exist_ok=True)
+                with open(os.path.join(sd, sl, "%d.webp" % i), "wb") as o: o.write(buf.getvalue())
+                total += buf.tell(); saved += 1
+            except Exception as e: log("shot failed", pk, repr(e)[:80])
+        if saved: done[pk] = saved; ok += 1
+        else: done[pk] = -int(time.time())
+    log("screenshots this run: apps tried", n, "ok", ok, "total KB", total // 1024)
 
 # ---------- duplicates ----------
 def detect_dups(S):
@@ -658,6 +903,8 @@ def main():
         apk_icons_pass(S)
     except Exception as e:
         log("apk icons pass failed:", repr(e))
+    try: shots_pass(S)
+    except Exception as e: log("screenshots pass failed:", repr(e))
     try: checkpoint(S)
     except Exception as e: log("checkpoint failed", repr(e))
     for fn in (gl_run, cb_run):

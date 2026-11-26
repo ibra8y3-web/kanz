@@ -103,8 +103,12 @@
   "host_delay_seconds": 2.5,
   "gitlab_pages_per_run": 3,
   "codeberg_pages_per_run": 3,
-  "apk_icons_per_run": 150,
+  "apk_icons_per_run": 100,
   "apk_icon_full_mb": 30,
-  "apk_icon_mb_per_run": 700,
-  "apk_icon_deadline_minutes": 37
+  "apk_icon_mb_per_run": 1500,
+  "apk_icons_fdroid_per_run": 300,
+  "apk_icon_minutes": 12,
+  "shots_apps_per_run": 120,
+  "shots_max_mb": 120,
+  "shots_minutes": 8
 }

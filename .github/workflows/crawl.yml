@@ -12,13 +12,14 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write
 concurrency:
   group: crawl
   cancel-in-progress: false
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,3 +59,10 @@ jobs:
           mkdir -p data docs
           git add -A data docs
           if git diff --cached --quiet; then echo "no changes"; else git commit -m "catalog update $(date -u +%F-%H%M)"; for i in 1 2 3 4; do git pull --rebase -X ours origin main && git push && break; sleep 5; done; fi
+      - name: schedule the next run (self-restart)
+        if: success() && vars.KANZ_CHAIN != 'off'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sleep 240
+          gh workflow run crawl.yml --repo "$GITHUB_REPOSITORY" --ref main || echo "could not self-dispatch"
