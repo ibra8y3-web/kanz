@@ -1,0 +1,24 @@
+name: "إضافة تطبيق إلى كنز | Submit an app to Kanz"
+description: "قدّم تطبيقك مفتوح المصدر ليظهر في المتجر تلقائيًا | Submit your open-source app, it is added automatically"
+title: "Submit app"
+labels: ["submit-app"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        المتجر بيضيف التطبيق تلقائيًا لو: المستودع عام على GitHub، فيه ترخيص مفتوح معروف، وفيه Release فيه ملف .apk.
+        The store adds the app automatically if the GitHub repo is public, has a known open-source license, and has a release with an .apk file.
+  - type: input
+    id: repo
+    attributes:
+      label: "رابط المستودع أو owner/repo | Repository (owner/repo or URL)"
+      placeholder: "owner/repo"
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: "تأكيد | Confirm"
+      options:
+        - label: "أنا صاحب التطبيق أو عندي تصريح، والتطبيق مفتوح المصدر ومش معدّل ولا مكركّ | I own this app or have permission, it is open source and not a modded or cracked build"
+          required: true

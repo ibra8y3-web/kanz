@@ -2,7 +2,7 @@
 import os, sys, json, tempfile, gzip, importlib
 d = tempfile.mkdtemp()
 cfg = json.load(open(os.path.join(os.path.dirname(__file__), "..", "config.json")))
-cfg.update(github_queries=["q1"], gitlab_topics=[], codeberg_topics=[], seed_owners=[], seed_repos=[], pages_per_query_first_run=1, pages_per_query_next_runs=1, apk_icons_per_run=0, sweep_queries=[])
+cfg.update(github_queries=["q1"], gitlab_topics=[], codeberg_topics=[], seed_owners=[], seed_repos=[], pages_per_query_first_run=1, pages_per_query_next_runs=1, apk_icons_per_run=0, sweep_queries=[], max_pages=20)
 json.dump(cfg, open(d + "/c.json", "w"))
 os.environ.update(KANZ_CONFIG=d + "/c.json", KANZ_STATE=d + "/s.json", KANZ_OUT=d + "/out")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "crawler"))

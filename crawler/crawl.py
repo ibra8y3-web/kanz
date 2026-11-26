@@ -229,6 +229,30 @@ def process_github_candidate(S, meta):
     stats["new_apps"] += 1; stats["new_versions"] += len(a["versions"])
     log("NEW", aid, len(a["versions"]), "versions")
 
+def process_submissions(S):
+    """repos queued by 'submit-app' issues (data/submissions.json); outcome goes to data/submission_results.json"""
+    qf = os.path.join(os.path.dirname(STATE_F), "submissions.json"); rf = os.path.join(os.path.dirname(STATE_F), "submission_results.json")
+    if not os.path.exists(qf): return
+    try: Q = json.load(open(qf, encoding="utf-8"))
+    except Exception: return
+    R = json.load(open(rf, encoding="utf-8")) if os.path.exists(rf) else {}
+    for it in Q[:200]:
+        repo = it.get("repo", ""); r = R.setdefault(repo, {"issue": it.get("issue"), "status": "pending", "tries": 0})
+        if r["status"] in ("accepted", "rejected"): continue
+        if out_of_time(): break
+        r["tries"] += 1
+        st, hd, o = jget("https://api.github.com/repos/" + repo)
+        if st != 200 or not o:
+            if st in (404, 451): r["status"] = "rejected"; r["why"] = "المستودع مش موجود أو مش عام"
+            continue
+        meta = gh_meta(o); S["rejected"].pop(meta["id"], None); process_github_candidate(S, meta)
+        if meta["id"] in S["apps"]: r["status"] = "accepted"; log("SUBMISSION accepted", repo)
+        else:
+            rj = S["rejected"].get(meta["id"])
+            if rj and rj["why"] != "no verifiable apk release": r["status"] = "rejected"; r["why"] = rj["why"]
+            elif rj or r["tries"] >= 12: r["status"] = "rejected"; r["why"] = "مفيش Release فيه ملف APK يتوثّق بالـSHA-256"
+    os.makedirs(os.path.dirname(rf), exist_ok=True); json.dump(R, open(rf, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+
 def gh_search(S, q, pages, since, sort_stars=False):
     n = 0
     qq = q + (" pushed:>" + since if since else "")
@@ -523,6 +547,8 @@ def public(a):
             "arch": a.get("archived", 0) or a.get("gone", 0),
             "v": [[v["tag"], v["date"], v["file"], v["size"], v["sha"], v["url"], v["hs"], v.get("pre", 0), v.get("gone", 0), v.get("sup", 0)] for v in a["versions"]]}
 
+PUB = []
+
 def self_entry():
     """the store lists itself: version/size/sha come from docs/app.json (same file the in-app self-update uses)"""
     try:
@@ -553,6 +579,7 @@ def publish(S, changed):
         sg = json.dumps(se["v"][0][0:5])
         if S.get("self_sig") != sg: S["self_sig"] = sg; S["self_r"] = rev
         se["r"] = S.get("self_r", rev); apps.append(se); apps.sort(key=lambda x: x["id"].lower())
+    PUB[:] = apps
     full = {"fmt": 1, "rev": rev, "gen": now(), "count": len(apps), "apps": apps}
     base = max(0, rev - CFG["delta_window_revs"])
     delta = {"fmt": 1, "rev": rev, "base": base, "gen": full["gen"], "apps": [x for x in apps if x["r"] > base]}
@@ -605,6 +632,9 @@ def main():
         for r in CFG["seed_repos"]:
             st, hd, o = jget("https://api.github.com/repos/" + r)
             if st == 200: process_github_candidate(S, gh_meta(o))
+        try: process_submissions(S)
+        except Stop: raise
+        except Exception as e: log("submissions failed:", repr(e))
         gh_recheck(S)
         pages = CFG["pages_per_query_first_run"] if first else CFG["pages_per_query_next_runs"]
         for q in CFG["github_queries"]:
@@ -635,6 +665,11 @@ def main():
             if not out_of_time(): fn(S)
         except Stop as e: log("stopped", fn.__name__, e)
     cur = sig(S); meta = publish(S, cur != _last_sig[0]); save_state(S)
+    try:
+        import pages
+        w, tot = pages.generate(PUB, OUT, icon_file, CFG.get("max_pages"))
+        log("pages: wrote", w, "of", tot)
+    except Exception as e: log("pages failed:", repr(e))
     log("DONE", json.dumps(stats), json.dumps(meta))
 
 if __name__ == "__main__": main()

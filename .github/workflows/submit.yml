@@ -1,0 +1,32 @@
+name: submit
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: submit
+  cancel-in-progress: false
+jobs:
+  submit:
+    if: contains(github.event.issue.labels.*.name, 'submit-app')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: queue submission
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python crawler/submit.py
+      - name: commit queue
+        run: |
+          git config user.name "kanz-bot"
+          git config user.email "kanz-bot@users.noreply.github.com"
+          mkdir -p data
+          git add -A data
+          if git diff --cached --quiet; then echo "no changes"; else
+            git commit -m "queue app submission"
+            for i in 1 2 3 4; do git pull --rebase origin main && git push && break; sleep 5; done
+          fi
