@@ -1,0 +1,35 @@
+name: release
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/kanz.apk"
+      - "docs/app.json"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: publish release from docs/kanz.apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VER=$(python3 -c "import json;print(json.load(open('docs/app.json'))['version'].split()[0])")
+          TAG="v$VER"
+          echo "version=$VER tag=$TAG"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" docs/kanz.apk --clobber
+          else
+            gh release create "$TAG" docs/kanz.apk \
+              --title "كنز $VER" \
+              --notes "أحدث نسخة من تطبيق كنز، المتجر المفتوح للتطبيقات الحرة. ملف التثبيت: kanz.apk"
+          fi
+          gh release view "$TAG" --json tagName,assets
