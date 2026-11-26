@@ -1,24 +1,31 @@
 name: "إضافة تطبيق إلى كنز | Submit an app to Kanz"
-description: "قدّم تطبيقك مفتوح المصدر ليظهر في المتجر تلقائيًا | Submit your open-source app, it is added automatically"
+description: "قدّم تطبيقك من أي منصة ليظهر في المتجر بعد الفحص الآلي | Submit your app from any platform; it is added after automated checks"
 title: "Submit app"
 labels: ["submit-app"]
 body:
   - type: markdown
     attributes:
       value: |
-        المتجر بيضيف التطبيق تلقائيًا لو: المستودع عام على GitHub، فيه ترخيص مفتوح معروف، وفيه Release فيه ملف .apk.
-        The store adds the app automatically if the GitHub repo is public, has a known open-source license, and has a release with an .apk file.
+        حط رابط التطبيق من أي منصة من دول: GitHub (owner/repo أو رابط)، GitLab، Codeberg، أو صفحة التطبيق على F-Droid. المتجر مفتوح المصدر بس، فلازم الكود يكون عام.
+        الفحص الآلي بيتأكد من: الترخيص، بصمة SHA-256، الصلاحيات الخطيرة، المتتبعين، وتوقيع الملف. اللي يعدي بينزل في المتجر لوحده. تطبيقات المطورين الجدد أو اللي فيها ملاحظة بتستنى مراجعة صاحب المتجر.
+        Paste a link from any of these: GitHub (owner/repo or URL), GitLab, Codeberg, or the app page on F-Droid. Kanz is open source only, so the source code must be public. Automated checks: license, SHA-256, risky permissions, trackers, signing. Passing apps are listed automatically; new developers or flagged apps wait for the store owner's review.
   - type: input
-    id: repo
+    id: link
     attributes:
-      label: "رابط المستودع أو owner/repo | Repository (owner/repo or URL)"
-      placeholder: "owner/repo"
+      label: "رابط التطبيق | App link"
+      placeholder: "owner/repo أو رابط GitHub / GitLab / Codeberg / F-Droid"
     validations:
       required: true
+  - type: input
+    id: name
+    attributes:
+      label: "اسم التطبيق (اختياري) | App name (optional)"
+    validations:
+      required: false
   - type: checkboxes
     id: confirm
     attributes:
       label: "تأكيد | Confirm"
       options:
-        - label: "أنا صاحب التطبيق أو عندي تصريح، والتطبيق مفتوح المصدر ومش معدّل ولا مكركّ | I own this app or have permission, it is open source and not a modded or cracked build"
+        - label: "أنا صاحب التطبيق أو عندي تصريح، والتطبيق مفتوح المصدر أو مجاني بشكل قانوني ومش معدّل ولا مكرك | I own this app or have permission, it is open source or legally free, not a modded or cracked build"
           required: true

@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: install pillow + cairosvg (icons)
-        run: pip install pillow cairosvg
+        run: pip install pillow cairosvg androguard || pip install pillow cairosvg
       - name: run crawler
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
