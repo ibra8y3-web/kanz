@@ -82,6 +82,13 @@
     "null"
    ]
   },
+  "screenshots": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "small webp copies, F-Droid apps only, may be empty"
+  },
   "versions": {
    "type": "array",
    "items": {
