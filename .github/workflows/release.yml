@@ -24,7 +24,13 @@ jobs:
           set -e
           VER=$(python3 -c "import json;print(json.load(open('docs/app.json'))['version'].split()[0])")
           TAG="v$VER"
-          echo "version=$VER tag=$TAG"
+          APK_SHA=$(sha256sum docs/kanz.apk | cut -d' ' -f1)
+          JSON_SHA=$(python3 -c "import json;print(json.load(open('docs/app.json'))['sha256'])")
+          if [ "$APK_SHA" != "$JSON_SHA" ]; then
+            echo "kanz.apk and app.json disagree (split upload); the matching commit will rerun this"
+            exit 1
+          fi
+          echo "version=$VER tag=$TAG sha=$APK_SHA"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" docs/kanz.apk --clobber
           else
