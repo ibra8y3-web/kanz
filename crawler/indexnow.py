@@ -38,27 +38,30 @@ def sitemap_urls():
     return [loc.text.strip() for loc in root.findall(".//s:loc", ns) if loc.text]
 
 
-def changed_urls():
-    """Pages whose HTML changed in the latest commit, mapped to their URLs."""
-    out = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD~1", "HEAD", "--", "docs"],
-        capture_output=True, text=True,
-    )
+def _to_url(rel):
+    p = rel[len("docs/"):]
+    if p == "index.html":
+        return BASE
+    if p.endswith("/index.html"):
+        return BASE + p[: -len("index.html")]
+    return BASE + p
+
+
+def changed_urls(since_minutes=None):
+    """HTML pages changed in the last commit, or in all commits of the last N minutes."""
+    if since_minutes:
+        cmd = ["git", "log", "--since=%d minutes ago" % since_minutes, "--name-only", "--pretty=format:", "--", "docs"]
+    else:
+        cmd = ["git", "diff", "--name-only", "HEAD~1", "HEAD", "--", "docs"]
+    out = subprocess.run(cmd, capture_output=True, text=True)
     if out.returncode != 0:
         return []
-    urls = []
+    seen = {}
     for line in out.stdout.splitlines():
         rel = line.strip()
-        if not rel.startswith("docs/") or not rel.endswith(".html"):
-            continue
-        p = rel[len("docs/"):]
-        if p == "index.html":
-            urls.append(BASE)
-        elif p.endswith("/index.html"):
-            urls.append(BASE + p[: -len("index.html")])
-        else:
-            urls.append(BASE + p)
-    return urls
+        if rel.startswith("docs/") and rel.endswith(".html"):
+            seen[_to_url(rel)] = 1
+    return list(seen)
 
 
 def submit(urls, key, dry):
@@ -91,12 +94,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--all", action="store_true", help="submit the whole sitemap")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--since-minutes", type=int, default=0, help="submit pages changed in the last N minutes")
     args = ap.parse_args()
     key = load_key()
     if args.all:
         urls = sitemap_urls()
     else:
-        urls = changed_urls()
+        urls = changed_urls(args.since_minutes)
         if not urls:
             print("no changed pages, nothing to submit")
             return

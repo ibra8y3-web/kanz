@@ -1,8 +1,7 @@
 name: indexnow
 on:
-  workflow_run:
-    workflows: [crawl]
-    types: [completed]
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       all:
@@ -13,12 +12,11 @@ permissions:
   contents: read
 jobs:
   submit:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 100
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -27,5 +25,5 @@ jobs:
           if [ "${{ inputs.all }}" = "true" ]; then
             python crawler/indexnow.py --all
           else
-            python crawler/indexnow.py
+            python crawler/indexnow.py --since-minutes 75
           fi
