@@ -132,10 +132,25 @@ CSS = ("body{font-family:system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif;ma
 
 def render(n):
     sl = slug(n["id"]); name = n["name"]; desc = n["desc"]; url = SITE + "a/" + sl + "/"
-    short = re.sub(r"\s+", " ", desc)[:155]; e = html.escape
-    ld = {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": name, "operatingSystem": "Android", "applicationCategory": "MobileApplication",
-          "softwareVersion": n["ver"], "description": short, "url": url, "downloadUrl": n["url"], "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}
+    e = html.escape
     lic = n["lic"]; known = lic and lic not in ("UNSPECIFIED", "FOSS")
+    title = "تحميل %s APK (%s) للأندرويد | كنز" % (name, n["ver"])
+    facts = "تحميل %s %s للأندرويد" % (name, n["ver"])
+    if _mb(n["size"]): facts += " (%s)" % _mb(n["size"])
+    facts += " - مجاني ومفتوح المصدر من متجر كنز"
+    if known: facts += "، بترخيص %s" % lic
+    if n["date"]: facts += "، آخر إصدار %s" % n["date"]
+    dshort = re.sub(r"\s+", " ", desc).strip()
+    full = (dshort + " " + facts + ".") if dshort else (facts + ".")
+    meta = full[:157].rstrip() + ("…" if len(full) > 157 else "")
+    ic = n["icon"]
+    ogimg = SITE + ic[6:] if ic.startswith("../../") else (ic if ic.startswith("http") else SITE + "icon.png")
+    ld = {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": name, "operatingSystem": "Android", "applicationCategory": "MobileApplication",
+          "softwareVersion": n["ver"], "description": meta, "url": url, "downloadUrl": n["url"], "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}
+    if n["date"]: ld["dateModified"] = n["date"]
+    if _mb(n["size"]): ld["fileSize"] = _mb(n["size"])
+    dv0 = n.get("dev")
+    if dv0: ld["author"] = {"@type": "Organization", "name": dv0[0]}
     badge = ""
     if known: badge = '<div class="v">✓ ترخيص مفتوح (<bdi dir="ltr">%s</bdi>)%s%s</div>' % (e(lic), " · بصمة SHA-256" if n["live"] else "", ((" · %s: <bdi dir=\"ltr\">%s</bdi>" % ("آخر إصدار" if n["live"] else "آخر تحديث", e(n["date"])))) if n["date"] else "")
     elif n["self"]: badge = ""
@@ -147,9 +162,9 @@ def render(n):
     dv = n.get("dev"); devbox = ('<div class="card"><p class="s"><a class="l" href="../../d/%s/">تطبيقات تانية لنفس المطوّر (%d)</a><br><span dir="ltr">More apps from this developer: <bdi>%s</bdi></span></p></div>' % (e(dv[1]), dv[2], e(dv[0]))) if dv else ""
     cat = ('<div class="s">%s</div>' % e(n["cat"])) if n["cat"] else ""
     return ('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<title>%s - تحميل APK | كنز</title><meta name="description" content="%s"><link rel="canonical" href="%s">'
-            '<meta property="og:title" content="%s | كنز"><meta property="og:description" content="%s"><meta property="og:type" content="website">'
-            '<meta property="og:url" content="%s"><meta property="og:image" content="%sicon.png">'
+            '<title>%s</title><meta name="description" content="%s"><link rel="canonical" href="%s">'
+            '<meta property="og:title" content="%s"><meta property="og:description" content="%s"><meta property="og:type" content="website">'
+            '<meta property="og:url" content="%s"><meta property="og:image" content="%s">'
             '<script type="application/ld+json">%s</script><link rel="stylesheet" href="../style.css"></head><body>'
             '<div class="top"><a href="../../">كنز | Kanz</a></div><div class="w"><div class="card"><div class="h"><img src="%s" alt="">'
             '<div><h1>%s</h1>%s</div></div><p class="s">%s</p>%s'
@@ -158,7 +173,7 @@ def render(n):
             '<a class="b p" href="%s" rel="nofollow">تحميل APK (<bdi dir="ltr">%s</bdi>)<br><small dir="ltr">Download APK</small></a>%s%s</div>'
             '%s%s<div class="card" style="text-align:center"><div class="qr">%s</div><p class="n">امسح الكود لفتح صفحة التطبيق<br><span dir="ltr">Scan to open this app page</span></p></div><div class="card"><p class="s">لو كنز مش متثبت عندك: <a class="l" href="../../kanz.apk">نزّل متجر كنز</a>.<br><span dir="ltr">Not installed? <a class="l" href="../../kanz.apk">Get the Kanz store</a>.</span></p>'
             '<p class="s"><a class="l" href="%s">المصدر | Source</a> · <a class="l" href="../">كل التطبيقات</a></p></div></div></body></html>') % (
-        e(name), e(short), e(url), e(name), e(short), e(url), SITE, json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
+        e(title), e(meta), e(url), e(title), e(meta), e(url), e(ogimg), json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
         e(n["icon"]), e(name), cat, e(desc[:300]), badge, e(n["ver"]), e(_mb(n["size"])), e(lic), urllib.parse.quote(n["id"], safe=""),
         e(n["url"]), e(_mb(n["size"])), sha, note, shotbox, devbox, qr_svg(url), e(n["src"]))
 
@@ -278,21 +293,24 @@ def generate(apps, out, icon_file, limit=None):
     wrote += _write(os.path.join(out, "a", "style.css"), CSS)
     wrote += _write(os.path.join(out, "a", "index.html"),
         '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>كل التطبيقات | كنز</title>'
+        '<meta name="description" content="تصفح %d تطبيق أندرويد مفتوح المصدر ومجاني في متجر كنز - تحميل APK مباشر وبصمة SHA-256 لكل نسخة.">'
         '<link rel="canonical" href="%sa/"><link rel="stylesheet" href="style.css"></head><body><div class="top"><a href="../">كنز | Kanz</a></div>'
-        '<div class="w"><div class="card bk"><h1>كل التطبيقات (%d)</h1>%s</div></div></body></html>' % (SITE, len(rows), li))
+        '<div class="w"><div class="card bk"><h1>كل التطبيقات (%d)</h1>%s</div></div></body></html>' % (len(rows), SITE, len(rows), li))
     for k, v in buckets.items():
         ul = "".join('<li><a class="l" href="../%s/">%s</a></li>' % (sl, html.escape(nm)) for nm, sl, _ in v)
         wrote += _write(os.path.join(out, "a", "b", k + ".html"),
-            '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تطبيقات %s | كنز</title>'
+            '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تطبيقات بحرف %s | كنز</title>'
+            '<meta name="description" content="%d تطبيق أندرويد مفتوح المصدر يبدأ اسمه بحرف %s - تحميل APK مجاني ومباشر من متجر كنز.">'
             '<link rel="canonical" href="%sa/b/%s.html"><link rel="stylesheet" href="../style.css"></head><body><div class="top"><a href="../../">كنز | Kanz</a></div>'
-            '<div class="w"><div class="card"><h1>%s (%d)</h1><ul>%s</ul><p class="s"><a class="l" href="../">كل الحروف</a></p></div></div></body></html>' % (html.escape(k), SITE, k, html.escape(k.upper()), len(v), ul))
+            '<div class="w"><div class="card"><h1>%s (%d)</h1><ul>%s</ul><p class="s"><a class="l" href="../">كل الحروف</a></p></div></div></body></html>' % (html.escape(k.upper()), len(v), html.escape(k.upper()), SITE, k, html.escape(k.upper()), len(v), ul))
     for k, v in groups.items():
         v = sorted(v, key=lambda x: x["name"].lower())[:300]
         ul = "".join('<li><a class="l" href="../../a/%s/">%s</a></li>' % (slug(x["id"]), html.escape(x["name"])) for x in v)
         wrote += _write(os.path.join(out, "d", slug(k), "index.html"),
-            '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>%s | كنز</title>'
+            '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تطبيقات %s | كنز</title>'
+            '<meta name="description" content="تطبيقات أندرويد مفتوحة المصدر من %s على متجر كنز - تحميل APK مباشر ومجاني.">'
             '<link rel="canonical" href="%sd/%s/"><link rel="stylesheet" href="../../a/style.css"></head><body><div class="top"><a href="../../">كنز | Kanz</a></div>'
-            '<div class="w"><div class="card"><h1><bdi dir="ltr">%s</bdi></h1><p class="n">تطبيقات مجمّعة حسب صاحب المستودع أو اسم الحزمة (مش دايمًا نفس المطوّر بالظبط).</p><ul>%s</ul></div></div></body></html>' % (html.escape(k), SITE, slug(k), html.escape(k), ul))
+            '<div class="w"><div class="card"><h1><bdi dir="ltr">%s</bdi></h1><p class="n">تطبيقات مجمّعة حسب صاحب المستودع أو اسم الحزمة (مش دايمًا نفس المطوّر بالظبط).</p><ul>%s</ul></div></div></body></html>' % (html.escape(k), html.escape(k), SITE, slug(k), html.escape(k), ul))
     wrote += _api_files(out, api, gen)
     wrote += _write(os.path.join(out, "names.json"), json.dumps(names, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
     wrote += _write(os.path.join(out, "l", "index.html"), LIST_HTML)
@@ -306,3 +324,4 @@ def generate(apps, out, icon_file, limit=None):
     wrote += _write(os.path.join(out, "sitemap.xml"), "\n".join(sm))
     wrote += _write(os.path.join(out, "robots.txt"), "User-agent: *\nAllow: /\nSitemap: %ssitemap.xml\n" % SITE)
     return wrote, len(rows)
+
