@@ -59,6 +59,10 @@ jobs:
           mkdir -p data docs
           git add -A data docs
           if git diff --cached --quiet; then echo "no changes"; else git commit -m "catalog update $(date -u +%F-%H%M)"; for i in 1 2 3 4; do git pull --rebase -X ours origin main && git push && break; sleep 5; done; fi
+      - name: notify search engines (IndexNow)
+        if: success()
+        continue-on-error: true
+        run: python crawler/indexnow.py --since-minutes 60
       - name: schedule the next run (self-restart)
         if: success() && vars.KANZ_CHAIN != 'off'
         env:
@@ -66,3 +70,4 @@ jobs:
         run: |
           sleep 240
           gh workflow run crawl.yml --repo "$GITHUB_REPOSITORY" --ref main || echo "could not self-dispatch"
+
