@@ -1,0 +1,73 @@
+name: crawl
+on:
+  schedule:
+    - cron: "7,37 * * * *"     # كل 30 دقيقة
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "crawler/**"
+      - "config.json"
+      - ".github/workflows/crawl.yml"
+permissions:
+  contents: write
+  issues: write
+  actions: write
+concurrency:
+  group: crawl
+  cancel-in-progress: false
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: restore previous catalog from history if missing
+        run: |
+          mkdir -p data docs/icons
+          if [ ! -f data/state.json ]; then
+            C=$(git log -1 --format=%H --diff-filter=AM -- data/state.json || true)
+            if [ -n "$C" ]; then
+              echo "restoring from $C"
+              git checkout "$C" -- data docs/catalog.json.gz docs/delta.json.gz docs/meta.json docs/icons 2>&1 || true
+            else
+              echo "no earlier state, starting fresh"
+            fi
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: install pillow + cairosvg (icons)
+        run: pip install pillow cairosvg androguard || pip install pillow cairosvg
+      - name: run crawler
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python crawler/crawl.py
+      - name: report submissions
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python crawler/notify.py || true
+      - name: commit catalog
+        if: always()
+        run: |
+          git config user.name "kanz-bot"
+          git config user.email "kanz-bot@users.noreply.github.com"
+          mkdir -p data docs
+          git add -A data docs
+          if git diff --cached --quiet; then echo "no changes"; else git commit -m "catalog update $(date -u +%F-%H%M)"; for i in 1 2 3 4; do git pull --rebase -X ours origin main && git push && break; sleep 5; done; fi
+      - name: notify search engines (IndexNow)
+        if: success()
+        continue-on-error: true
+        run: python crawler/indexnow.py --since-minutes 60
+      - name: schedule the next run (self-restart)
+        if: success() && vars.KANZ_CHAIN != 'off'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sleep 240
+          gh workflow run crawl.yml --repo "$GITHUB_REPOSITORY" --ref main || echo "could not self-dispatch"
+
