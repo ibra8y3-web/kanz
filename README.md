@@ -1,3 +1,4 @@
+[![OpenRepos](https://img.shields.io/endpoint?url=https://openrepos.org/status/kanz.repos.one.json&style=flat-square)](https://kanz.repos.one/)
 <div align="center">
   <img src="docs/icon.png" alt="Kanz icon" width="112">
   <h1>Kanz Catalog · كتالوج كنز</h1>
