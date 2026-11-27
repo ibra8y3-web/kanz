@@ -1,0 +1,31 @@
+name: indexnow
+on:
+  workflow_run:
+    workflows: [crawl]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Submit every URL in the sitemap (first run / recovery)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  submit:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: submit changed URLs to IndexNow
+        run: |
+          if [ "${{ inputs.all }}" = "true" ]; then
+            python crawler/indexnow.py --all
+          else
+            python crawler/indexnow.py
+          fi
